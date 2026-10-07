@@ -1,0 +1,20 @@
+{
+  "name": "bidtrace",
+  "version": "1.0.0",
+  "description": "BidTrace - Incorruptible Cryptographic Deadline-Lock for Procurement",
+  "main": "index.js",
+  "scripts": {
+    "test": "ts-node tests/test_runner.ts",
+    "verify": "ts-node verifier/verify.ts",
+    "demo": "python run_demo.py"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/web3.js": "^1.95.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}
