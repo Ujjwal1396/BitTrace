@@ -185,12 +185,28 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json({"status": "error", "message": str(e)}, 400)
 
         elif self.path == "/api/attack-late-bid":
-            # Attempt to commit after deadline
+            if not state.tender_pda:
+                self.send_json({"status": "error", "message": "No active tender. Initialize a tender first."}, 400)
+                return
+
+            tender = state.ledger.tenders[state.tender_pda]
+            current_slot = state.ledger.current_slot
+            deadline_slot = tender["deadline_slot"]
+
+            if current_slot <= deadline_slot:
+                self.send_json({
+                    "status": "warning",
+                    "title": "BID ACCEPTED (NOT AN ATTACK YET)",
+                    "message": f"Consensus clock is at Slot {current_slot} (Deadline is {deadline_slot}). Because the deadline has not passed yet, Bidder D's bid was legally accepted! Click '3. Advance Slot & Lock Tender' first to test what happens after the deadline."
+                })
+                return
+
+            # Actually attempt late commit after deadline
             corrupt_kp = generate_keypair()
             corrupt_salt = secrets.token_hex(32)
             corrupt_payload = encrypt_payload({"bidder": "Shadow Contractor", "amount": 3800000, "specs": "Late Collusive Bid"})
             corrupt_comm = compute_commitment_hash(
-                state.tender_pda or "00"*20, corrupt_kp["public_key"], corrupt_salt, corrupt_payload["ciphertext_hash_hex"], 3800000
+                state.tender_pda, corrupt_kp["public_key"], corrupt_salt, corrupt_payload["ciphertext_hash_hex"], 3800000
             )
             try:
                 state.ledger.commit_bid(state.tender_pda, corrupt_kp["public_key"], corrupt_comm)
@@ -199,13 +215,22 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json({
                     "status": "defended",
                     "error_type": "BidTraceError::DeadlineExceeded",
-                    "message": str(e),
-                    "explanation": f"Anchor Program rejected late transaction. Current slot ({state.ledger.current_slot}) > Deadline slot."
+                    "raw_error": str(e),
+                    "slot_info": f"Current Slot {current_slot} > Deadline {deadline_slot}"
                 })
 
         elif self.path == "/api/attack-tamper-price":
             if not state.bidders_receipts:
                 self.send_json({"status": "error", "message": "No bids to tamper."}, 400)
+                return
+
+            tender = state.ledger.tenders[state.tender_pda]
+            if tender["status"] != TenderStatus.LOCKED:
+                self.send_json({
+                    "status": "defended",
+                    "error_type": "BidTraceError::TenderNotLocked",
+                    "raw_error": f"TenderNotLocked: Tender status is still '{tender['status']}'. Nobody is allowed to open or reveal bids before the deadline closes!",
+                })
                 return
 
             target = state.bidders_receipts[0] # ACME Corp
@@ -223,8 +248,9 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json({
                     "status": "defended",
                     "error_type": "BidTraceError::InvalidRevealHash",
-                    "message": str(e),
-                    "explanation": f"Anchor Program detected hash mismatch. Recomputed hash for tampered price ${tampered_price:,} != immutable on-chain commitment."
+                    "raw_error": str(e),
+                    "tampered_price": tampered_price,
+                    "original_price": target["bid_amount"]
                 })
 
         elif self.path == "/api/verify-offline":

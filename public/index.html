@@ -287,20 +287,29 @@
     }
 
     async function apiAttackLateBid() {
-      log(">>> ATTACK 1: Malicious Admin attempts to commit late bid (Bidder D) post-deadline...", "warning");
+      log(">>> ATTACK 1: Malicious Admin attempts to commit late bid (Bidder D)...", "warning");
       const res = await callApi("/api/attack-late-bid");
-      if (res && res.status === "defended") {
+      if (!res) return;
+      if (res.status === "warning") {
+        log(`[NOTICE] ${res.title}: ${res.message}`, "warning");
+      } else if (res.status === "defended") {
         log(`[DEFENSE SUCCESS] Python Anchor runtime reverted: ${res.error_type}`, "error");
-        log(`Proof: ${res.explanation}`, "success");
+        log(`Raw Blockchain Error: ${res.raw_error}`, "error");
+        log(`Proof: ${res.slot_info}`, "success");
+      } else if (res.status === "breach") {
+        log(`[BREACH] ${res.message}`, "error");
       }
     }
 
     async function apiAttackTamperPrice() {
-      log(">>> ATTACK 2: Malicious Admin modifies ACME Corp DB price to steal tender...", "warning");
+      log(">>> ATTACK 2: Malicious Admin attempts to alter stored price during reveal...", "warning");
       const res = await callApi("/api/attack-tamper-price");
-      if (res && res.status === "defended") {
+      if (!res) return;
+      if (res.status === "defended") {
         log(`[DEFENSE SUCCESS] Python Anchor runtime reverted: ${res.error_type}`, "error");
-        log(`Proof: ${res.explanation}`, "success");
+        log(`Raw Math Mismatch: ${res.raw_error}`, "error");
+      } else if (res.status === "breach") {
+        log(`[BREACH] ${res.message}`, "error");
       }
     }
 
