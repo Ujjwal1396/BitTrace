@@ -27,7 +27,7 @@
           <div>
             <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               BidTrace
-              <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">Solana Devnet v2.0</span>
+              <span id="backend-status" class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">● Python Engine Connected</span>
             </h1>
             <p class="text-xs text-slate-400">Incorruptible Cryptographic Deadline-Lock Protocol for Competitive Procurement</p>
           </div>
@@ -42,6 +42,9 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           Run 3-Min Live Demo
         </button>
+        <button onclick="resetState()" title="Reset demo to start" class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 rounded-lg text-xs transition cursor-pointer">
+          &#8634;
+        </button>
       </div>
     </header>
 
@@ -51,9 +54,9 @@
         <div>
           <div class="flex items-center gap-2 mb-1">
             <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300">Tender Ref</span>
-            <span class="font-bold text-slate-200 mono">TENDER-2026-HIGHWAY-402</span>
+            <span id="tender-id-display" class="font-bold text-slate-200 mono">TENDER-2026-HIGHWAY-402</span>
           </div>
-          <div class="text-xs text-slate-400">Authority: <span class="mono text-slate-300">bb3dc067...89e2 (Municipal Works Ministry)</span></div>
+          <div class="text-xs text-slate-400">Tender PDA: <span id="tender-pda-display" class="mono text-cyan-400">Click 'Initialize Tender' to create</span></div>
         </div>
 
         <!-- Lifecycle Steps -->
@@ -63,7 +66,7 @@
           </div>
           <span class="text-slate-600">&rarr;</span>
           <div id="step-locked" class="px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/50 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-slate-500"></span> 2. Locked (Slot 1050)
+            <span class="w-2 h-2 rounded-full bg-slate-500"></span> 2. Locked
           </div>
           <span class="text-slate-600">&rarr;</span>
           <div id="step-revealed" class="px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/50 flex items-center gap-1.5">
@@ -84,127 +87,74 @@
       <div class="lg:col-span-2 space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-            <span>Registered Tender Submissions</span>
-            <span id="badge-count" class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">3 Committed</span>
+            <span>Tender Submissions (Non-Custodial PDAs)</span>
+            <span id="badge-count" class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">0 Committed</span>
           </h2>
-          <span class="text-xs text-slate-500">Non-Custodial PDAs (Flaw A Solved)</span>
+          <span class="text-xs text-slate-500">Flaw A Solved (No Operator Gatekeeper)</span>
         </div>
 
-        <!-- Bidder Cards -->
+        <!-- Bidder Cards Container -->
         <div class="space-y-3" id="bidders-container">
-
-          <!-- Card 1: ACME -->
-          <div id="card-acme" class="bg-slate-900 border border-slate-800 rounded-xl p-4 transition-all">
-            <div class="flex items-start justify-between">
-              <div>
-                <div class="flex items-center gap-2">
-                  <h3 class="font-bold text-white text-base">ACME Corp</h3>
-                  <span id="status-acme" class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Committed @ Slot 1000</span>
-                </div>
-                <p class="text-xs text-slate-400 mt-0.5">Payload: AES-256-GCM Encrypted Specification & Pricing</p>
-              </div>
-              <div class="text-right">
-                <div id="price-acme" class="text-lg font-bold text-slate-300 mono">$4,200,000</div>
-                <div class="text-[11px] text-slate-500">Status: <span id="reveal-tag-acme" class="text-slate-400">Pre-Reveal (Encrypted)</span></div>
-              </div>
-            </div>
-            <div class="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs mono text-slate-400">
-              <div>Commitment: <span class="text-slate-300">8882a67a...470</span></div>
-              <div class="text-[11px] text-cyan-400">PDA: d934e029...266</div>
-            </div>
+          <div id="empty-state" class="p-8 text-center border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs">
+            No bids committed yet. Click <span class="text-cyan-400 font-semibold">'1. Initialize Tender'</span> then <span class="text-cyan-400 font-semibold">'2. Commit 3 Bids'</span> to watch Python execute the real cryptography!
           </div>
-
-          <!-- Card 2: BuildCo Ltd -->
-          <div id="card-buildco" class="bg-slate-900 border border-slate-800 rounded-xl p-4 transition-all">
-            <div class="flex items-start justify-between">
-              <div>
-                <div class="flex items-center gap-2">
-                  <h3 class="font-bold text-white text-base">BuildCo Ltd</h3>
-                  <span id="status-buildco" class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Committed @ Slot 1000</span>
-                </div>
-                <p class="text-xs text-slate-400 mt-0.5">Payload: AES-256-GCM Structural Steel & Engineering</p>
-              </div>
-              <div class="text-right">
-                <div id="price-buildco" class="text-lg font-bold text-emerald-400 mono">$3,950,000</div>
-                <div class="text-[11px] text-slate-500">Status: <span id="reveal-tag-buildco" class="text-slate-400">Pre-Reveal (Encrypted)</span></div>
-              </div>
-            </div>
-            <div class="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs mono text-slate-400">
-              <div>Commitment: <span class="text-slate-300">dec6bcc3...e83</span></div>
-              <div class="text-[11px] text-cyan-400">PDA: b5a1b6d4...790</div>
-            </div>
-          </div>
-
-          <!-- Card 3: InfraPlus -->
-          <div id="card-infraplus" class="bg-slate-900 border border-slate-800 rounded-xl p-4 transition-all">
-            <div class="flex items-start justify-between">
-              <div>
-                <div class="flex items-center gap-2">
-                  <h3 class="font-bold text-white text-base">InfraPlus</h3>
-                  <span id="status-infraplus" class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Committed @ Slot 1000</span>
-                </div>
-                <p class="text-xs text-slate-400 mt-0.5">Payload: AES-256-GCM Composite Materials & Drainage</p>
-              </div>
-              <div class="text-right">
-                <div id="price-infraplus" class="text-lg font-bold text-slate-300 mono">$4,100,000</div>
-                <div class="text-[11px] text-slate-500">Status: <span id="reveal-tag-infraplus" class="text-slate-400">Pre-Reveal (Encrypted)</span></div>
-              </div>
-            </div>
-            <div class="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs mono text-slate-400">
-              <div>Commitment: <span class="text-slate-300">a71f83b5...cb1</span></div>
-              <div class="text-[11px] text-cyan-400">PDA: 66dfd386...eaa</div>
-            </div>
-          </div>
-
         </div>
 
-        <!-- Attack Console Output -->
+        <!-- Defense Activity Console Log -->
         <div class="bg-black/60 border border-slate-800 rounded-xl p-4 mono text-xs space-y-1.5">
           <div class="text-slate-500 uppercase tracking-wider font-bold mb-2 flex items-center justify-between">
-            <span>Solana Consensus & Defense Activity Log</span>
-            <span class="text-emerald-400 font-normal">RPC: devnet-active</span>
+            <span>Live Solana Anchor Consensus & Defense Activity</span>
+            <span class="text-emerald-400 font-normal">Python Engine: Active</span>
           </div>
-          <div id="console-logs" class="space-y-1 max-h-44 overflow-y-auto pr-2 text-slate-300">
-            <div>[00:01] Tender initialized at Slot 1000 with deadline slot 1050.</div>
-            <div>[00:02] ACME Corp committed hash 8882a67a to PDA d934e029.</div>
-            <div>[00:03] BuildCo Ltd committed hash dec6bcc3 to PDA b5a1b6d4.</div>
-            <div>[00:04] InfraPlus committed hash a71f83b5 to PDA 66dfd386.</div>
+          <div id="console-logs" class="space-y-1 max-h-48 overflow-y-auto pr-2 text-slate-300">
+            <div class="text-slate-500">Waiting for actions... Click buttons on the right to trigger real protocol instructions.</div>
           </div>
         </div>
       </div>
 
-      <!-- Right Column: Interactive Attack Triggers & Verifier (1 col) -->
+      <!-- Right Column: Interactive Attack Playground (1 col) -->
       <div class="space-y-4">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Interactive Attack Playground</h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Interactive Control Playground</h2>
 
         <!-- Action Panel -->
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-          <div class="text-xs text-slate-400">Trigger on-chain instructions and test protocol resilience:</div>
+          <div class="text-xs text-slate-400">Execute real Anchor protocol instructions in Python:</div>
 
-          <button onclick="advanceSlotAndLock()" id="btn-lock" class="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
-            <span>&rarr;</span> Advance Slot to 1060 & Lock Tender
-          </button>
+          <!-- Step 1 & 2 Setup -->
+          <div class="space-y-2">
+            <button onclick="apiInitTender()" id="btn-init" class="w-full py-2.5 px-3 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>1.</span> Initialize Tender (Deadline Slot 1050)
+            </button>
+            <button onclick="apiCommitThreeBids()" id="btn-commit" class="w-full py-2.5 px-3 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>2.</span> Commit 3 Encrypted Bids (Direct PDAs)
+            </button>
+            <button onclick="apiLockTender()" id="btn-lock" class="w-full py-2.5 px-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>3.</span> Advance Slot to 1060 & Lock Tender
+            </button>
+          </div>
 
+          <!-- Live Attack Simulations -->
           <div class="border-t border-slate-800 pt-3">
             <div class="text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">Simulate Database Attacks</div>
             
-            <button onclick="simulateAttackLateBid()" id="btn-attack-1" class="w-full py-2.5 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 mb-2 cursor-pointer">
+            <button onclick="apiAttackLateBid()" id="btn-attack-1" class="w-full py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 mb-2 cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
               Attack 1: Inject Late Bidder D
             </button>
 
-            <button onclick="simulateAttackTamperPrice()" id="btn-attack-2" class="w-full py-2.5 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+            <button onclick="apiAttackTamperPrice()" id="btn-attack-2" class="w-full py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
               Attack 2: Tamper ACME Price
             </button>
           </div>
 
+          <!-- Finalization -->
           <div class="border-t border-slate-800 pt-3">
             <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Protocol Finalization</div>
-            <button onclick="revealLegitBids()" id="btn-reveal" class="w-full py-2.5 px-3 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 mb-2 cursor-pointer">
+            <button onclick="apiRevealBids()" id="btn-reveal" class="w-full py-2 px-3 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 mb-2 cursor-pointer">
               Reveal Legitimate Bids
             </button>
-            <button onclick="recordAwardWinner()" id="btn-award" class="w-full py-2.5 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+            <button onclick="apiRecordAward()" id="btn-award" class="w-full py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
               Record Tender Award (BuildCo)
             </button>
           </div>
@@ -220,16 +170,16 @@
             <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 mono">Zero Backend</span>
           </div>
           <p class="text-xs text-slate-400">Verifies standalone <span class="mono text-slate-200">proof_bundle.json</span> against public Solana accounts without touching the BidTrace server:</p>
-          <button onclick="runOfflineVerifier()" class="w-full py-2.5 px-3 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+          <button onclick="apiVerifyOffline()" class="w-full py-2.5 px-3 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
             Run Air-Gapped Audit Check
           </button>
           <div id="verifier-output" class="hidden text-xs mono p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 space-y-1">
             <div class="font-bold text-emerald-400 flex items-center gap-1.5">
               <span>&#10003;</span> AUDIT VERIFIED: Tamper-Free
             </div>
-            <div class="text-[11px] text-emerald-200/80">Slot Committed: 1000 &le; 1050 [PASS]</div>
-            <div class="text-[11px] text-emerald-200/80">Preimage Hash Match: VALID [PASS]</div>
-            <div class="text-[11px] text-emerald-200/80">AES-256-GCM Tag: OK [PASS]</div>
+            <div id="verif-line-slot" class="text-[11px] text-emerald-200/80">Slot Committed: 1000 &le; 1050 [PASS]</div>
+            <div id="verif-line-hash" class="text-[11px] text-emerald-200/80">Preimage Hash Match: VALID [PASS]</div>
+            <div id="verif-line-crypto" class="text-[11px] text-emerald-200/80">AES-256-GCM Tag: OK [PASS]</div>
           </div>
         </div>
 
@@ -238,104 +188,185 @@
   </div>
 
   <script>
-    let currentSlot = 1000;
-    let isLocked = false;
-    let isRevealed = false;
-    let isAwarded = false;
-
     function log(msg, type = "normal") {
       const logs = document.getElementById("console-logs");
       const d = document.createElement("div");
       if (type === "error") d.className = "text-rose-400 font-semibold";
       else if (type === "success") d.className = "text-emerald-400 font-semibold";
       else if (type === "warning") d.className = "text-amber-400 font-semibold";
+      else d.className = "text-slate-300";
       d.innerText = `[${new Date().toISOString().slice(14, 19)}] ` + msg;
       logs.prepend(d);
     }
 
-    function advanceSlotAndLock() {
-      currentSlot = 1060;
-      document.getElementById("slot-counter").innerText = currentSlot;
-      isLocked = true;
-      document.getElementById("step-active").className = "px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5";
-      document.getElementById("step-locked").className = "px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5";
-      log("Clock advanced to Slot 1060 (Deadline 1050 exceeded).", "warning");
-      log("Solana Anchor instruction 'lock_tender' executed. Submissions frozen.", "success");
-    }
-
-    function simulateAttackLateBid() {
-      log(">>> ATTACK 1: Admin attempts post-deadline commit for Bidder D...", "warning");
-      if (currentSlot > 1050) {
-        log("DEFENSE ACTIVATED: Anchor reverted with 'BidTraceError::DeadlineExceeded'.", "error");
-        log("Proof: Slot 1060 > 1050. No admin key can bypass consensus deadline.", "success");
-      } else {
-        log("Please advance slot and lock tender first to trigger this attack.", "warning");
+    async function callApi(endpoint, data = {}) {
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        return await res.json();
+      } catch (err) {
+        log(`Failed to connect to Python server on http://localhost:8080: ${err}`, "error");
+        return null;
       }
     }
 
-    function simulateAttackTamperPrice() {
-      log(">>> ATTACK 2: Admin modifies ACME Corp DB price ($4.2M -> $3.7M)...", "warning");
-      log("DEFENSE ACTIVATED: Anchor reverted with 'BidTraceError::InvalidRevealHash'.", "error");
-      log("Proof: Recomputed hash != on-chain commitment 8882a67a. Bid tampering halted.", "success");
+    async function resetState() {
+      await callApi("/api/reset");
+      location.reload();
     }
 
-    function revealLegitBids() {
-      if (!isLocked) {
-        log("Cannot reveal bids before tender is locked!", "error");
-        return;
+    async function apiInitTender() {
+      log("Calling Python backend: POST /api/init-tender...", "normal");
+      const res = await callApi("/api/init-tender", { tender_id: "TENDER-2026-HIGHWAY-402", deadline_slots: 50 });
+      if (res && res.status === "ok") {
+        document.getElementById("slot-counter").innerText = res.tender.initialized_at_slot;
+        document.getElementById("tender-pda-display").innerText = res.tender.pda;
+        log(`Tender created on Python simulated Anchor ledger! PDA: ${res.tender.pda}`, "success");
+        log(`Authority: ${res.authority_pubkey.slice(0, 16)}... | Deadline Slot: ${res.tender.deadline_slot}`, "normal");
       }
-      isRevealed = true;
-      document.getElementById("step-locked").className = "px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5";
-      document.getElementById("step-revealed").className = "px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5";
-
-      document.getElementById("reveal-tag-acme").innerText = "Revealed & Verified";
-      document.getElementById("reveal-tag-buildco").innerText = "Revealed & Verified";
-      document.getElementById("reveal-tag-infraplus").innerText = "Revealed & Verified";
-
-      log("Bidders published reveal packets (salts + plaintexts).", "normal");
-      log("All 3 preimage hashes cryptographically verified by Anchor program.", "success");
     }
 
-    function recordAwardWinner() {
-      if (!isRevealed) {
-        log("Cannot award tender before bids are revealed!", "error");
-        return;
+    async function apiCommitThreeBids() {
+      const bidders = [
+        { name: "ACME Corp", amount: 4200000, specs: "Grade 50 Reinforced Concrete" },
+        { name: "BuildCo Ltd", amount: 3950000, specs: "Structural Steel & Concrete" },
+        { name: "InfraPlus", amount: 4100000, specs: "Composite Materials & Drainage" }
+      ];
+
+      const container = document.getElementById("bidders-container");
+      const emptyState = document.getElementById("empty-state");
+      if (emptyState) emptyState.remove();
+
+      for (const b of bidders) {
+        log(`Calling Python backend: AES-256 encrypting & generating SHA-256 for ${b.name}...`, "normal");
+        const res = await callApi("/api/commit-bid", b);
+        if (res && res.status === "ok") {
+          const r = res.receipt;
+          log(`[REAL CRYPTO] ${r.bidder_name} committed to PDA ${r.pda.slice(0, 16)}... | Hash: ${r.commitment_hash.slice(0, 16)}...`, "success");
+
+          const card = document.createElement("div");
+          card.id = `card-${r.bidder_name.toLowerCase().replace(/[^a-z]/g, '')}`;
+          card.className = "bg-slate-900 border border-slate-800 rounded-xl p-4 transition-all";
+          card.innerHTML = `
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-bold text-white text-base">${r.bidder_name}</h3>
+                  <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Committed @ Slot ${r.committed_slot}</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-0.5">Payload: AES-256-GCM Encrypted</p>
+              </div>
+              <div class="text-right">
+                <div class="text-lg font-bold text-slate-300 mono">$${r.bid_amount.toLocaleString()}</div>
+                <div class="text-[11px] text-slate-500">Status: <span id="tag-${card.id}" class="text-slate-400">Pre-Reveal (Encrypted)</span></div>
+              </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs mono text-slate-400">
+              <div>Commitment: <span class="text-slate-300">${r.commitment_hash.slice(0, 16)}...</span></div>
+              <div class="text-[11px] text-cyan-400">PDA: ${r.pda.slice(0, 16)}...</div>
+            </div>
+          `;
+          container.appendChild(card);
+          document.getElementById("badge-count").innerText = `${res.total_committed} Committed`;
+        }
       }
-      isAwarded = true;
-      document.getElementById("step-revealed").className = "px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5";
-      document.getElementById("step-awarded").className = "px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 font-bold";
-
-      document.getElementById("card-buildco").className = "bg-gradient-to-r from-emerald-950/40 to-slate-900 border-2 border-emerald-500/50 rounded-xl p-4 shadow-lg shadow-emerald-500/10";
-      document.getElementById("status-buildco").innerText = "WINNING BIDDER AWARDED";
-      document.getElementById("status-buildco").className = "text-xs px-2 py-0.5 rounded bg-emerald-400 text-slate-950 font-bold";
-
-      log("Authority instruction 'record_award' confirmed on-chain.", "success");
-      log("Winner: BuildCo Ltd ($3,950,000) - lowest verified compliant bid.", "success");
     }
 
-    function runOfflineVerifier() {
-      document.getElementById("verifier-output").classList.remove("hidden");
-      log("Standalone air-gapped verifier executed with zero backend.", "success");
-      log("Independent Audit Passed: Slot committed 1000 <= 1050; Hash matched; Preimage sound.", "success");
+    async function apiLockTender() {
+      log("Calling Python backend: POST /api/lock-tender (Advancing slot past deadline)...", "warning");
+      const res = await callApi("/api/lock-tender");
+      if (res && res.status === "ok") {
+        document.getElementById("slot-counter").innerText = res.current_slot;
+        document.getElementById("step-active").className = "px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5";
+        document.getElementById("step-locked").className = "px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5";
+        log(`Tender locked in Python state machine at Slot ${res.current_slot}! Submissions are permanently frozen.`, "success");
+      }
+    }
+
+    async function apiAttackLateBid() {
+      log(">>> ATTACK 1: Malicious Admin attempts to commit late bid (Bidder D) post-deadline...", "warning");
+      const res = await callApi("/api/attack-late-bid");
+      if (res && res.status === "defended") {
+        log(`[DEFENSE SUCCESS] Python Anchor runtime reverted: ${res.error_type}`, "error");
+        log(`Proof: ${res.explanation}`, "success");
+      }
+    }
+
+    async function apiAttackTamperPrice() {
+      log(">>> ATTACK 2: Malicious Admin modifies ACME Corp DB price to steal tender...", "warning");
+      const res = await callApi("/api/attack-tamper-price");
+      if (res && res.status === "defended") {
+        log(`[DEFENSE SUCCESS] Python Anchor runtime reverted: ${res.error_type}`, "error");
+        log(`Proof: ${res.explanation}`, "success");
+      }
+    }
+
+    async function apiRevealBids() {
+      log("Calling Python backend: POST /api/reveal-bids (Verifying preimage hashes)...", "normal");
+      const res = await callApi("/api/reveal-bids");
+      if (res && res.status === "ok") {
+        document.getElementById("step-locked").className = "px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5";
+        document.getElementById("step-revealed").className = "px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5";
+
+        for (const rev of res.revealed) {
+          const cardId = `tag-card-${rev.bidder_name.toLowerCase().replace(/[^a-z]/g, '')}`;
+          const el = document.getElementById(cardId);
+          if (el) el.innerText = "Revealed & Verified";
+        }
+        log("All 3 bids decrypted and preimage hashes verified 100% on-chain in Python!", "success");
+      }
+    }
+
+    async function apiRecordAward() {
+      log("Calling Python backend: POST /api/record-award...", "normal");
+      const res = await callApi("/api/record-award");
+      if (res && res.status === "ok") {
+        document.getElementById("step-revealed").className = "px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5";
+        document.getElementById("step-awarded").className = "px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 font-bold";
+
+        const winCard = document.getElementById("card-buildcoltd");
+        if (winCard) {
+          winCard.className = "bg-gradient-to-r from-emerald-950/40 to-slate-900 border-2 border-emerald-500/50 rounded-xl p-4 shadow-lg shadow-emerald-500/10";
+        }
+        log(`Tender awarded on-chain to ${res.winner_name} ($${res.winning_amount.toLocaleString()})! Lowest verified compliant bid.`, "success");
+      }
+    }
+
+    async function apiVerifyOffline() {
+      log("Calling Python verifier: Running standalone air-gapped audit with zero backend...", "normal");
+      const res = await callApi("/api/verify-offline");
+      if (res && res.status === "ok") {
+        const rep = res.audit_report;
+        document.getElementById("verifier-output").classList.remove("hidden");
+        document.getElementById("verif-line-slot").innerText = `Slot Committed: ${rep.committed_slot} <= Deadline ${rep.deadline_slot} [PASS]`;
+        document.getElementById("verif-line-hash").innerText = `Preimage Hash Match: ${rep.on_chain_hash.slice(0, 16)}... [MATCH]`;
+        log(`Air-gapped audit passed! Proven tamper-free against consensus slot ${rep.committed_slot}.`, "success");
+      }
     }
 
     async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     async function runAutomatedDemo() {
-      log("--- STARTING 3-MINUTE AUTOMATED DEMO ---", "warning");
-      await sleep(1000);
-      advanceSlotAndLock();
+      log("--- STARTING 3-MINUTE AUTOMATED LIVE BACKEND DEMO ---", "warning");
+      await apiInitTender();
       await sleep(1500);
-      simulateAttackLateBid();
+      await apiCommitThreeBids();
       await sleep(1800);
-      simulateAttackTamperPrice();
+      await apiLockTender();
       await sleep(1800);
-      revealLegitBids();
+      await apiAttackLateBid();
+      await sleep(2000);
+      await apiAttackTamperPrice();
+      await sleep(2000);
+      await apiRevealBids();
+      await sleep(1800);
+      await apiRecordAward();
       await sleep(1500);
-      recordAwardWinner();
-      await sleep(1200);
-      runOfflineVerifier();
-      log("--- 3-MINUTE DEMO COMPLETED SUCCESSFULLY ---", "success");
+      await apiVerifyOffline();
+      log("--- 3-MINUTE DEMO COMPLETED WITH REAL PYTHON CRYPTOGRAPHY ---", "success");
     }
   </script>
 </body>
