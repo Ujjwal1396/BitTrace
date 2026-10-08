@@ -332,6 +332,42 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self.send_json({"status": "error", "message": str(e)}, 500)
 
+        elif self.path == "/api/devnet/faucet":
+            import subprocess
+            recipient = data.get("recipient", "").strip()
+            amount = float(data.get("amount", 0.2))
+            if not recipient or len(recipient) < 32 or len(recipient) > 44:
+                self.send_json({"status": "error", "message": "Invalid recipient Solana public key."}, 400)
+                return
+
+            try:
+                cmd = f'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH" && solana transfer --url https://api.devnet.solana.com --allow-unfunded-recipient {recipient} {amount}'
+                proc = subprocess.run(
+                    ["wsl", "-e", "bash", "-c", cmd],
+                    cwd=os.path.dirname(__file__),
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                output = proc.stdout + proc.stderr
+                sig = ""
+                for line in output.splitlines():
+                    if "Signature:" in line:
+                        sig = line.split("Signature:")[-1].strip()
+                        break
+
+                if sig:
+                    self.send_json({
+                        "status": "ok",
+                        "signature": sig,
+                        "recipient": recipient,
+                        "amount": amount
+                    })
+                else:
+                    self.send_json({"status": "error", "message": output}, 500)
+            except Exception as e:
+                self.send_json({"status": "error", "message": str(e)}, 500)
+
         else:
             self.send_json({"error": "Endpoint not found"}, 404)
 

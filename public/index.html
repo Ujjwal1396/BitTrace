@@ -545,18 +545,46 @@
     }
 
     async function requestDevnetAirdrop() {
-      if (!connectedWalletPublicKey) return;
+      if (!connectedWalletPublicKey) {
+        alert("Please connect your Phantom wallet or click 'Instant Devnet Keypair' first.");
+        return;
+      }
+      
+      const pubkeyStr = connectedWalletPublicKey.toBase58();
+      logDevnet(`Funding wallet ${pubkeyStr.slice(0, 8)}... with Devnet SOL...`, "warning");
+
+      // 1. First try Authority Transfer Faucet (Instant, reliable, no rate limits)
       try {
-        logDevnet(`Requesting 1 SOL airdrop for ${connectedWalletPublicKey.toBase58()}...`, "warning");
+        logDevnet("Transferring 0.2 Devnet SOL from funded Authority keypair...", "normal");
+        const res = await fetch("/api/devnet/faucet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipient: pubkeyStr, amount: 0.2 })
+        });
+        const data = await res.json();
+        if (data.status === "ok") {
+          logDevnet(`>>> SUCCESS! Sent 0.2 SOL from Authority to your wallet!`, "success");
+          logDevnet(`Tx Signature: <a href="https://explorer.solana.com/tx/${data.signature}?cluster=devnet" target="_blank" class="text-cyan-400 underline">${data.signature.slice(0, 20)}...</a>`, "success");
+          await refreshWalletBalance();
+          return;
+        }
+      } catch (e) {
+        console.warn("Backend faucet attempt failed, trying public RPC faucet:", e);
+      }
+
+      // 2. Fallback to public Solana Devnet RPC airdrop
+      try {
+        logDevnet("Requesting 1 SOL from public Solana Devnet faucet...", "normal");
         const sig = await window.BidTraceWeb3.devnetConnection.requestAirdrop(
           connectedWalletPublicKey,
           solanaWeb3.LAMPORTS_PER_SOL
         );
         await window.BidTraceWeb3.devnetConnection.confirmTransaction(sig, "confirmed");
-        logDevnet("Airdrop confirmed on Devnet!", "success");
+        logDevnet(">>> Public airdrop confirmed on Devnet!", "success");
         await refreshWalletBalance();
       } catch (err) {
-        logDevnet(`Airdrop request failed: ${err.message}`, "error");
+        logDevnet(`Airdrop Notice: ${err.message}. If public faucet is rate-limited, you can also fund at faucet.solana.com`, "error");
+        alert(`Airdrop Notice: ${err.message}\n\nYou can also get free Devnet SOL at https://faucet.solana.com for address:\n${pubkeyStr}`);
       }
     }
 
