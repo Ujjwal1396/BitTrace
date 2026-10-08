@@ -5,10 +5,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-bidtrace = "BidTrace111111111111111111111111111111111111"
+bidtrace = "x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ"
 
 [programs.devnet]
-bidtrace = "BidTrace111111111111111111111111111111111111"
+bidtrace = "x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ"
 
 [registry]
 url = "https://api.apr.dev"

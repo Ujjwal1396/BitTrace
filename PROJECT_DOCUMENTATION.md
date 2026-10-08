@@ -161,6 +161,11 @@ To maintain scientific and systems rigor, BidTrace explicitly bounds its securit
 
 The Anchor program is organized into decoupled instructions with explicit security constraints:
 
+* **Canonical Program ID:** `x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ`
+* **BPF Loader Program:** `BPFLoaderUpgradeab1e11111111111111111111111`
+* **ProgramData Address:** `31T65nDyKp5Jyok1AE4YsCLH1nxEbnGWVBqvZjtf9iYp`
+* **Deployer Authority Key:** `GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU`
+
 ### 6.1 State Accounts (`state.rs`)
 * **`Tender` PDA:** Derived from `[b"tender", authority.key(), tender_id.as_bytes()]`
   * `authority: Pubkey`

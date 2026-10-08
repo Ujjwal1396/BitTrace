@@ -6,7 +6,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("BidTrace111111111111111111111111111111111111");
+declare_id!("x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ");
 
 #[program]
 pub mod bidtrace {

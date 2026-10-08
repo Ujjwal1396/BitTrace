@@ -41,6 +41,14 @@ The repository cleanly separates the protocol specification from its reference s
 | **Layer 2** | **Reference Model & Simulator (Python)** | `bidtrace_py/` | Deterministic local simulation of the Solana ledger, PDA derivations, and AES-256-GCM / SHA-256 cryptographic pipeline. |
 | **Layer 3** | **Air-Gapped Offline Verifier** | `bidtrace_py/verifier.py` & `verifier/verify.ts` | Independent audit tools verifying standalone JSON bundles against public ledger accounts with zero backend dependency. |
 
+### 2.1 On-Chain Program Identity
+
+* **Program ID:** `x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ`
+* **Program Binary:** `target/deploy/bidtrace.so` (280,608 bytes, compiled via Agave SBF 4.4.0 / Platform-Tools v1.57)
+* **Program Loader:** `BPFLoaderUpgradeab1e11111111111111111111111`
+* **ProgramData Address:** `31T65nDyKp5Jyok1AE4YsCLH1nxEbnGWVBqvZjtf9iYp`
+* **Deployer Address:** `GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU`
+
 ---
 
 ## 3. Project Directory Structure

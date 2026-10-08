@@ -26,5 +26,6 @@ ENV/
 # Local state & artifacts from runs
 ledger_state.json
 bidder_receipt.json
+test-ledger/
 .DS_Store
 Thumbs.db
