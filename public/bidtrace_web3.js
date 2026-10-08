@@ -77,8 +77,10 @@ function hexToBytes(hex) {
  */
 async function computeBidCommitmentHash(tenderPda, bidderPubkey, saltBytes, ciphertextHashBytes, amount) {
   const domain = new TextEncoder().encode("BIDTRACE_V1");
-  const tenderBytes = tenderPda.toBytes();
-  const bidderBytes = bidderPubkey.toBytes();
+  const tender = new solanaWeb3.PublicKey(tenderPda.toString ? tenderPda.toString() : tenderPda);
+  const bidder = new solanaWeb3.PublicKey(bidderPubkey.toString ? bidderPubkey.toString() : bidderPubkey);
+  const tenderBytes = tender.toBytes();
+  const bidderBytes = bidder.toBytes();
   const amountBytes = encodeU64(amount);
 
   const preimage = concatBytes(
@@ -95,10 +97,11 @@ async function computeBidCommitmentHash(tenderPda, bidderPubkey, saltBytes, ciph
 
 // PDA Derivation
 function findTenderPDA(authorityPubkey, tenderId) {
+  const auth = new solanaWeb3.PublicKey(authorityPubkey.toString ? authorityPubkey.toString() : authorityPubkey);
   return solanaWeb3.PublicKey.findProgramAddressSync(
     [
       new TextEncoder().encode("tender"),
-      authorityPubkey.toBuffer(),
+      auth.toBytes(),
       new TextEncoder().encode(tenderId)
     ],
     BIDTRACE_PROGRAM_ID
@@ -106,11 +109,13 @@ function findTenderPDA(authorityPubkey, tenderId) {
 }
 
 function findBidCommitmentPDA(tenderPda, bidderPubkey) {
+  const tender = new solanaWeb3.PublicKey(tenderPda.toString ? tenderPda.toString() : tenderPda);
+  const bidder = new solanaWeb3.PublicKey(bidderPubkey.toString ? bidderPubkey.toString() : bidderPubkey);
   return solanaWeb3.PublicKey.findProgramAddressSync(
     [
       new TextEncoder().encode("bid"),
-      tenderPda.toBuffer(),
-      bidderPubkey.toBuffer()
+      tender.toBytes(),
+      bidder.toBytes()
     ],
     BIDTRACE_PROGRAM_ID
   );
@@ -387,6 +392,30 @@ class BidTraceWalletManager {
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = this.publicKey;
 
+    // Pre-flight simulation check directly against Devnet RPC
+    try {
+      const sim = await devnetConnection.simulateTransaction(transaction);
+      if (sim.value && sim.value.err) {
+        const logs = sim.value.logs || [];
+        const logsStr = logs.join(" ");
+        if (logsStr.includes("already in use") || logsStr.includes("Allocate: account")) {
+          throw new Error("Tender account already exists on-chain! Please click '⚡ New Tender ID' to generate a fresh unique tender ID.");
+        } else if (logsStr.includes("SubmissionDeadlineExceeded") || logsStr.includes("6002")) {
+          throw new Error("The submission window for this Tender has expired! Please initialize a fresh tender to submit bids.");
+        } else if (logsStr.includes("insufficient funds") || logsStr.includes("0x1")) {
+          throw new Error("Insufficient Devnet SOL to pay for transaction rent. Please click '+ Airdrop' to fund your wallet.");
+        } else {
+          throw new Error(`Simulation failed: ${JSON.stringify(sim.value.err)}. ${logs.slice(-2).join(" | ")}`);
+        }
+      }
+    } catch (simErr) {
+      // Re-throw our explicit helpful simulation errors
+      if (simErr.message && (simErr.message.includes("already exists") || simErr.message.includes("expired") || simErr.message.includes("Insufficient") || simErr.message.includes("Simulation failed"))) {
+        throw simErr;
+      }
+      console.warn("Devnet pre-simulation warning:", simErr);
+    }
+
     if (this.isInternal && this.keypair) {
       transaction.sign(this.keypair, ...additionalSigners);
       const rawTx = transaction.serialize();
@@ -402,7 +431,17 @@ class BidTraceWalletManager {
       }
       return signature;
     } else if (this.provider) {
-      const { signature } = await this.provider.signAndSendTransaction(transaction);
+      let signature;
+      if (typeof this.provider.signAndSendTransaction === 'function') {
+        const res = await this.provider.signAndSendTransaction(transaction);
+        signature = res.signature;
+      } else if (typeof this.provider.signTransaction === 'function') {
+        const signedTx = await this.provider.signTransaction(transaction);
+        signature = await devnetConnection.sendRawTransaction(signedTx.serialize(), { skipPreflight: false });
+      } else {
+        throw new Error("No compatible signing method on wallet provider");
+      }
+
       for (let i = 0; i < 35; i++) {
         const st = await devnetConnection.getSignatureStatus(signature);
         if (st && st.value && (st.value.confirmationStatus === 'confirmed' || st.value.confirmationStatus === 'finalized')) {
@@ -417,6 +456,40 @@ class BidTraceWalletManager {
   }
 }
 
+async function fetchTenderState(tenderPda) {
+  try {
+    const pk = new solanaWeb3.PublicKey(tenderPda.toString ? tenderPda.toString() : tenderPda);
+    const acc = await devnetConnection.getAccountInfo(pk);
+    if (!acc || !acc.data || acc.data.length < 50) return { exists: false };
+    const data = acc.data;
+    const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const idLen = dv.getUint32(40, true);
+    const id = new TextDecoder().decode(data.subarray(44, 44 + idLen));
+    const offset = 44 + idLen;
+    const subDeadline = Number(dv.getBigUint64(offset, true));
+    const revDeadline = Number(dv.getBigUint64(offset + 8, true));
+    const bond = Number(dv.getBigUint64(offset + 16, true));
+    const status = data[offset + 24];
+    const currentSlot = await devnetConnection.getSlot();
+    const isExpired = currentSlot > subDeadline;
+    const slotsRemaining = Math.max(0, subDeadline - currentSlot);
+    return {
+      exists: true,
+      id,
+      subDeadline,
+      revDeadline,
+      bond,
+      status,
+      currentSlot,
+      isExpired,
+      slotsRemaining
+    };
+  } catch (e) {
+    console.warn("fetchTenderState error:", e);
+    return { exists: false };
+  }
+}
+
 window.BidTraceWeb3 = {
   PROGRAM_ID: BIDTRACE_PROGRAM_ID,
   DEVNET_RPC_URL,
@@ -424,6 +497,7 @@ window.BidTraceWeb3 = {
   walletManager: new BidTraceWalletManager(),
   findTenderPDA,
   findBidCommitmentPDA,
+  fetchTenderState,
   createInitializeTenderInstruction,
   createCommitBidInstruction,
   createLockTenderInstruction,

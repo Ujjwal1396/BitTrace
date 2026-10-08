@@ -150,13 +150,29 @@
             <!-- Form: Initialize On-Chain Tender with Phantom -->
             <div class="bg-black/40 border border-slate-800/80 rounded-xl p-4 space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-purple-300">Step 1: Initialize On-Chain Tender</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-purple-300">Step 1: Initialize On-Chain Tender</span>
+                  <span id="tender-live-status-badge" class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400">Ready</span>
+                </div>
                 <span class="text-[11px] mono text-slate-400" id="devnet-derived-pda">PDA will be derived</span>
               </div>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <input id="input-tender-id" type="text" value="TENDER-DEVNET-402" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Tender ID">
-                <input id="input-sub-window" type="number" value="100" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Submission Window (+Slots)">
-                <input id="input-bond-amount" type="number" value="1000" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Bid Bond (lamports)">
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                <div class="sm:col-span-6 flex gap-1.5">
+                  <input id="input-tender-id" type="text" value="" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Tender ID">
+                  <button type="button" onclick="generateFreshTenderId()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/40 rounded-lg text-xs font-semibold flex items-center gap-1 transition whitespace-nowrap cursor-pointer" title="Generate brand new Tender ID">
+                    <span>⚡ New ID</span>
+                  </button>
+                </div>
+                <div class="sm:col-span-3">
+                  <input id="input-sub-window" type="number" value="1200" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Window (+1200 slots ~8m)" title="Submission window in slots (1200 slots = ~8 minutes)">
+                </div>
+                <div class="sm:col-span-3">
+                  <input id="input-bond-amount" type="number" value="1000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Bid Bond (lamports)">
+                </div>
+              </div>
+              <div id="tender-live-status-details" class="text-[11px] text-slate-400 flex items-center justify-between">
+                <span>Submission window: 1,200 slots (~8 minutes to commit bids).</span>
+                <span class="text-slate-500">Free testnet lamports bond</span>
               </div>
               <button onclick="web3InitializeTender()" id="btn-web3-init" class="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
@@ -468,6 +484,7 @@
         updateWalletUI(true, pubkey.toBase58(), false);
         logDevnet(`Phantom Connected: ${pubkey.toBase58()}`, "success");
         await refreshWalletBalance();
+        await updateTenderLiveStatus();
       } catch (err) {
         logDevnet(`Notice: ${err.message}`, "warning");
         const useInternal = confirm("No Phantom extension detected in this browser profile.\n\nWould you like to activate an Instant In-Browser Devnet Wallet instead? (No installation required, auto-funded with Devnet SOL!)");
@@ -485,6 +502,7 @@
         updateWalletUI(true, pubkey.toBase58(), true);
         logDevnet(`In-Browser Keypair Active: ${pubkey.toBase58()}`, "success");
         await refreshWalletBalance();
+        await updateTenderLiveStatus();
 
         const bal = await window.BidTraceWeb3.walletManager.getBalance();
         if (bal < 0.05) {
@@ -637,6 +655,73 @@
     // Direct Web3 Actions with Phantom
     let activeWeb3TenderPda = null;
 
+    function generateFreshTenderId() {
+      const randNum = Math.floor(1000 + Math.random() * 9000);
+      const newId = `TENDER-DEVNET-${randNum}`;
+      const input = document.getElementById("input-tender-id");
+      if (input) input.value = newId;
+      updateTenderLiveStatus();
+      return newId;
+    }
+
+    async function updateTenderLiveStatus() {
+      const badge = document.getElementById("tender-live-status-badge");
+      const details = document.getElementById("tender-live-status-details");
+      const pdaDisplay = document.getElementById("devnet-derived-pda");
+      const input = document.getElementById("input-tender-id");
+      if (!input) return;
+
+      const tenderId = input.value.trim();
+      if (!tenderId) {
+        if (badge) {
+          badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400";
+          badge.innerText = "Empty ID";
+        }
+        return;
+      }
+
+      const activeWallet = connectedWalletPublicKey;
+      if (!activeWallet || !window.BidTraceWeb3) {
+        if (pdaDisplay) pdaDisplay.innerText = "Connect wallet to derive PDA";
+        return;
+      }
+
+      try {
+        const [pda] = window.BidTraceWeb3.findTenderPDA(activeWallet, tenderId);
+        activeWeb3TenderPda = pda;
+        if (pdaDisplay) pdaDisplay.innerText = `PDA: ${pda.toBase58().slice(0, 10)}...`;
+
+        const st = await window.BidTraceWeb3.fetchTenderState(pda);
+        if (!st || !st.exists) {
+          if (badge) {
+            badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30";
+            badge.innerText = "Ready to Initialize";
+          }
+          if (details) {
+            details.innerHTML = `<span class="text-purple-300 font-medium">Unallocated PDA: Ready to initialize on Devnet.</span> <span class="text-slate-500">Free testnet bond</span>`;
+          }
+        } else if (!st.isExpired) {
+          if (badge) {
+            badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            badge.innerText = `● Active (${st.slotsRemaining} slots remaining)`;
+          }
+          if (details) {
+            details.innerHTML = `<span class="text-emerald-400 font-medium">✓ Tender is Active on-chain!</span> <span class="text-slate-400">Open for sealed bids until slot ${st.subDeadline}.</span>`;
+          }
+        } else {
+          if (badge) {
+            badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30";
+            badge.innerText = `✕ Expired @ Slot ${st.subDeadline}`;
+          }
+          if (details) {
+            details.innerHTML = `<span class="text-rose-400 font-medium">✕ Deadline has passed. Click '⚡ New ID' above to start a fresh tender.</span>`;
+          }
+        }
+      } catch (e) {
+        console.warn("Status update error:", e);
+      }
+    }
+
     async function web3InitializeTender() {
       const btn = document.getElementById("btn-web3-init");
       try {
@@ -649,28 +734,28 @@
         btn.disabled = true;
         btn.innerHTML = `<span class="animate-spin mr-1.5">&#9696;</span> Preparing Transaction...`;
 
-        let tenderId = document.getElementById("input-tender-id").value.trim() || `TENDER-${Math.floor(Date.now() / 1000)}`;
-        const subWindow = parseInt(document.getElementById("input-sub-window").value) || 100;
-        const bond = parseInt(document.getElementById("input-bond-amount").value) || 1000;
-
-        // Auto-increment tender ID if already initialized on-chain
-        try {
-          const [testPda] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
-          const existingTender = await window.BidTraceWeb3.devnetConnection.getAccountInfo(testPda);
-          if (existingTender) {
-            tenderId = `TENDER-${Math.floor(Date.now() / 1000)}`;
-            document.getElementById("input-tender-id").value = tenderId;
-            logDevnet(`Notice: Tender ID was already initialized. Using fresh ID: ${tenderId}`, "warning");
-          }
-        } catch (e) {
-          console.warn("PDA check:", e);
+        let tenderId = document.getElementById("input-tender-id").value.trim();
+        if (!tenderId) {
+          tenderId = generateFreshTenderId();
         }
 
-        logDevnet(`Preparing initialize_tender transaction for '${tenderId}'...`, "normal");
+        // Check if tender is already initialized on-chain
+        const [testPda] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
+        const existingTender = await window.BidTraceWeb3.fetchTenderState(testPda);
+        if (existingTender && existingTender.exists) {
+          logDevnet(`Notice: Tender ID '${tenderId}' is already initialized on Devnet (PDA: ${testPda.toBase58()}).`, "warning");
+          tenderId = generateFreshTenderId();
+          logDevnet(`Generated fresh unique Tender ID: '${tenderId}'`, "success");
+        }
+
+        const subWindow = parseInt(document.getElementById("input-sub-window").value) || 1200;
+        const bond = parseInt(document.getElementById("input-bond-amount").value) || 1000;
+
+        logDevnet(`Preparing initialize_tender transaction for '${tenderId}' (${subWindow} slots window)...`, "normal");
 
         const currentSlot = await window.BidTraceWeb3.devnetConnection.getSlot();
         const subSlot = currentSlot + subWindow;
-        const revSlot = subSlot + 150;
+        const revSlot = subSlot + 1500;
 
         const { instruction, tenderPda } = window.BidTraceWeb3.createInitializeTenderInstruction({
           authority: connectedWalletPublicKey,
@@ -684,13 +769,15 @@
         document.getElementById("devnet-derived-pda").innerText = `PDA: ${tenderPda.toBase58().slice(0, 12)}...`;
 
         const tx = new solanaWeb3.Transaction().add(instruction);
-        logDevnet("Prompting wallet to sign and broadcast to Solana Devnet...", "warning");
+        logDevnet("Pre-flight simulated OK! Prompting wallet to sign on Devnet...", "normal");
+        logDevnet("Note: If Phantom displays 'Confirm (unsafe)', confirm to proceed on Devnet.", "warning");
 
         const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
         logDevnet(`>>> SUCCESS! Tender initialized on Solana Devnet!`, "success");
         logDevnet(`Tx Signature: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank" class="text-purple-400 underline">${sig.slice(0, 20)}...</a>`, "success");
         logDevnet(`Tender PDA: ${tenderPda.toBase58()}`, "normal");
 
+        await updateTenderLiveStatus();
         await pollDevnetStatus();
         await refreshWalletBalance();
       } catch (err) {
@@ -717,21 +804,33 @@
         btn.disabled = true;
         btn.innerHTML = `<span class="animate-spin mr-1.5">&#9696;</span> Preparing Sealed Bid...`;
 
-        const tenderId = document.getElementById("input-tender-id").value.trim() || "TENDER-DEVNET-402";
+        let tenderId = document.getElementById("input-tender-id").value.trim();
+        if (!tenderId) {
+          alert("Please specify a Tender ID.");
+          return;
+        }
+
         const [derived] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
         activeWeb3TenderPda = derived;
 
-        // Verify Tender exists on-chain before attempting to commit
+        // Verify Tender exists on-chain and check deadline before committing
         logDevnet(`Verifying Tender account ${activeWeb3TenderPda.toBase58().slice(0, 10)}... on Devnet...`, "normal");
-        const tenderInfo = await window.BidTraceWeb3.devnetConnection.getAccountInfo(activeWeb3TenderPda);
-        if (!tenderInfo) {
-          const errMsg = `Tender '${tenderId}' has not been initialized on Devnet yet!\n\nPlease click 'Step 1: Initialize Tender (Sign On-Chain)' first so the on-chain tender account is created before committing bids.`;
+        const tenderState = await window.BidTraceWeb3.fetchTenderState(activeWeb3TenderPda);
+        if (!tenderState || !tenderState.exists) {
+          const errMsg = `Tender '${tenderId}' has not been initialized on Devnet yet!\n\nPlease click 'Step 1: Initialize Tender (Sign On-Chain)' first to create the tender before committing bids.`;
           logDevnet(`[PREREQUISITE REQUIRED] ${errMsg}`, "error");
           alert(errMsg);
           return;
         }
 
-        const contractorName = document.getElementById("input-bidder-name").value.trim();
+        if (tenderState.isExpired) {
+          const errMsg = `Tender '${tenderId}' submission deadline expired at slot ${tenderState.subDeadline} (Current slot: ${tenderState.currentSlot})!\n\nPlease click '⚡ New ID' and 'Step 1: Initialize Tender' to create a fresh active tender.`;
+          logDevnet(`[DEADLINE EXPIRED] ${errMsg}`, "error");
+          alert(errMsg);
+          return;
+        }
+
+        const contractorName = document.getElementById("input-bidder-name").value.trim() || "Apex Infrastructure";
         const amount = parseInt(document.getElementById("input-bid-amount").value) || 3850000;
 
         logDevnet(`Generating cryptographic commitment for '${contractorName}' ($${amount.toLocaleString()})...`, "normal");
@@ -757,13 +856,15 @@
         });
 
         const tx = new solanaWeb3.Transaction().add(instruction);
-        logDevnet("Prompting wallet to sign sealed bid and broadcast to Devnet...", "warning");
+        logDevnet("Pre-flight simulated OK! Prompting wallet to sign sealed bid on Devnet...", "normal");
+        logDevnet("Note: If Phantom displays 'Confirm (unsafe)', confirm to proceed on Devnet.", "warning");
 
         const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
         logDevnet(`>>> SUCCESS! Sealed Bid committed on Solana Devnet!`, "success");
         logDevnet(`Tx Signature: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank" class="text-cyan-400 underline">${sig.slice(0, 20)}...</a>`, "success");
         logDevnet(`Bid PDA: ${bidCommitmentPda.toBase58()}`, "normal");
 
+        await updateTenderLiveStatus();
         await pollDevnetStatus();
         await refreshWalletBalance();
       } catch (err) {
@@ -1003,6 +1104,13 @@
       pollDevnetStatus();
       setInterval(pollDevnetStatus, 4000);
 
+      generateFreshTenderId();
+      const tenderInput = document.getElementById("input-tender-id");
+      if (tenderInput) {
+        tenderInput.addEventListener("input", updateTenderLiveStatus);
+        tenderInput.addEventListener("change", updateTenderLiveStatus);
+      }
+
       // Auto-detect Phantom if already authorized
       if (window.BidTraceWeb3 && window.BidTraceWeb3.walletManager.isPhantomInstalled()) {
         const prov = window.BidTraceWeb3.walletManager.getWalletProvider();
@@ -1010,6 +1118,7 @@
           connectedWalletPublicKey = prov.publicKey;
           updateWalletUI(true, prov.publicKey.toBase58());
           refreshWalletBalance();
+          updateTenderLiveStatus();
         }
       }
     });

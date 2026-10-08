@@ -1,9 +1,9 @@
 {
-  "tenderId": "TENDER-1791453673",
-  "tenderPda": "AJD4qS2WKcN8ds7C8WTVEV3gxAA2NBuWKEuGxuFai6qY",
-  "contractorPubkey": "4Ywf6sgCsQQkjR6Yp1NJc9NRp7uhZJBJ2xrGjXU4RBZ5",
-  "bidPda": "cmTLBb6LoeD843mWAXVmU8nVPCDiUr31VVof7NNQbPK",
-  "commitmentHash": "bfb7127ba78fe31464cdf348385d87fe9ae55c4bfac82782615a920dfa56dd05",
-  "initTxSignature": "4pGFN9e2op4mn55VbitPQEqrz9CYRhKx5TtfTtd4P4Z6YfvAc2wFMBQpq7oGTN5GHTr4qagLqATfXSqeBoLs8BTf",
-  "commitTxSignature": "a3mv2qswhZAw7a18P8DFzPvMvcdkfu4Hr8zX9kmRfXtnmUB2kkBSz4gWuefqFH74age6nQX4JbY5vEpTvRpJB8z"
+  "tenderId": "TENDER-1791465851",
+  "tenderPda": "HYdhz4sT4aCLqzWB6pp8KFpWd8CfP81UeqDdfHtDLGs8",
+  "contractorPubkey": "2bhUNsRTSha6eYS1HJ9oob8ycjde6wfAGoAdp45DRWXM",
+  "bidPda": "SxBz8ke43ddDNcperPR3pLBiD21jX8K5SqweHYq1aMi",
+  "commitmentHash": "caf57b168f91487347ae05d09af84ed74669a4dc9fe232ce3fe1e758e5d0326b",
+  "initTxSignature": "3PP6xiuvnoDTDTLjhg8cFKnmhPcrTP7qSNrGWJKw7RNG5cY6HJ6zrdAte1AiSKA8yrfLbEhdQ2txhnsiXHaf6262",
+  "commitTxSignature": "ZkbGgBnB4BwwkoiAmdxLjXtwkzr5qT55d5GEXEA9Q5wM9vaA44kpWRHCURtgnJPuvvQDmsb7ELTe9EsPyMWfZB3"
 }
