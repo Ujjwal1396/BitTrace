@@ -648,6 +648,15 @@
       const subWindow = parseInt(document.getElementById("input-sub-window").value) || 100;
       const bond = parseInt(document.getElementById("input-bond-amount").value) || 1000;
 
+      // Auto-increment tender ID if already initialized on-chain
+      let [testPda] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
+      const existingTender = await window.BidTraceWeb3.devnetConnection.getAccountInfo(testPda);
+      if (existingTender) {
+        tenderId = `TENDER-${Math.floor(Date.now() / 1000)}`;
+        document.getElementById("input-tender-id").value = tenderId;
+        logDevnet(`Notice: Tender ID was already initialized. Using fresh ID: ${tenderId}`, "warning");
+      }
+
       logDevnet(`Preparing initialize_tender transaction for '${tenderId}'...`, "normal");
 
       try {
@@ -687,11 +696,19 @@
         await connectInBrowserWallet();
         if (!connectedWalletPublicKey) return;
       }
-      if (!activeWeb3TenderPda) {
-        // Derive default from input tender id
-        const tenderId = document.getElementById("input-tender-id").value.trim() || "TENDER-DEVNET-402";
-        const [derived] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
-        activeWeb3TenderPda = derived;
+
+      const tenderId = document.getElementById("input-tender-id").value.trim() || "TENDER-DEVNET-402";
+      const [derived] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
+      activeWeb3TenderPda = derived;
+
+      // Verify Tender exists on-chain before attempting to commit
+      logDevnet(`Verifying Tender account ${activeWeb3TenderPda.toBase58().slice(0, 10)}... on Devnet...`, "normal");
+      const tenderInfo = await window.BidTraceWeb3.devnetConnection.getAccountInfo(activeWeb3TenderPda);
+      if (!tenderInfo) {
+        const errMsg = `Tender '${tenderId}' has not been initialized on Devnet yet!\n\nPlease click 'Step 1: Initialize Tender (Sign On-Chain)' first so the on-chain tender account is created before committing bids.`;
+        logDevnet(`[PREREQUISITE REQUIRED] ${errMsg}`, "error");
+        alert(errMsg);
+        return;
       }
 
       const contractorName = document.getElementById("input-bidder-name").value.trim();
