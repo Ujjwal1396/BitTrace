@@ -52,18 +52,28 @@
           <div id="devnet-slot-display" class="text-sm font-bold text-cyan-400 mono">Connecting...</div>
         </div>
 
-        <!-- Phantom Wallet Widget -->
-        <div id="wallet-section" class="flex items-center">
-          <button id="btn-connect-phantom" onclick="connectPhantomWallet()" class="phantom-btn text-white px-3.5 py-2 rounded-lg font-semibold text-xs shadow-md shadow-purple-900/30 transition flex items-center gap-2 cursor-pointer">
-            <svg class="w-4 h-4" viewBox="0 0 128 128" fill="none"><path d="M110.6 57.6C107.5 35.8 89.2 19 67 19c-24.8 0-45 20.2-45 45 0 24.8 20.2 45 45 45h6.5c19 0 34.5-15.5 34.5-34.5 0-5.7-1.4-11.1-4-15.8 4.4-.3 6.6-.9 6.6-1.1z" fill="#FFF"/><circle cx="51.5" cy="54.5" r="7.5" fill="#512DA8"/><circle cx="78.5" cy="54.5" r="7.5" fill="#512DA8"/></svg>
-            <span>Connect Phantom</span>
+        <!-- Wallet Actions -->
+        <div id="wallet-section" class="flex flex-wrap items-center gap-2">
+          <!-- Button: Connect Phantom -->
+          <button id="btn-connect-phantom" onclick="connectPhantomWallet()" class="phantom-btn text-white px-3 py-1.5 rounded-lg font-semibold text-xs shadow-md shadow-purple-900/30 transition flex items-center gap-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 128 128" fill="none"><path d="M110.6 57.6C107.5 35.8 89.2 19 67 19c-24.8 0-45 20.2-45 45 0 24.8 20.2 45 45 45h6.5c19 0 34.5-15.5 34.5-34.5 0-5.7-1.4-11.1-4-15.8 4.4-.3 6.6-.9 6.6-1.1z" fill="#FFF"/><circle cx="51.5" cy="54.5" r="7.5" fill="#512DA8"/><circle cx="78.5" cy="54.5" r="7.5" fill="#512DA8"/></svg>
+            <span>Phantom</span>
+          </button>
+
+          <!-- Button: Instant In-Browser Wallet -->
+          <button id="btn-instant-wallet" onclick="connectInBrowserWallet()" class="bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white px-3 py-1.5 rounded-lg font-semibold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer">
+            <span>⚡ Instant Devnet Keypair</span>
+            <span class="text-[9px] bg-black/40 text-cyan-200 px-1 py-0.2 rounded font-mono">Zero-Install</span>
           </button>
 
           <!-- Connected Wallet Pill (Hidden by default) -->
           <div id="wallet-connected-pill" class="hidden flex items-center gap-2 bg-slate-900 border border-purple-500/30 rounded-lg px-3 py-1.5 text-xs">
             <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-badge"></span>
             <div class="text-left">
-              <div id="wallet-pubkey-display" class="font-bold text-purple-300 mono text-[11px]">GFRR...wSzU</div>
+              <div class="flex items-center gap-1.5">
+                <span id="wallet-badge" class="text-[9px] px-1 rounded bg-purple-500/20 text-purple-300 font-mono">PHANTOM</span>
+                <span id="wallet-pubkey-display" class="font-bold text-slate-200 mono text-[11px]">GFRR...wSzU</span>
+              </div>
               <div id="wallet-balance-display" class="text-[10px] text-slate-400">0.00 SOL</div>
             </div>
             <button onclick="requestDevnetAirdrop()" title="Request 1 Devnet SOL" class="ml-1 px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 rounded cursor-pointer border border-purple-500/30">
@@ -150,11 +160,11 @@
               </div>
               <button onclick="web3InitializeTender()" id="btn-web3-init" class="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                <span>Initialize Tender (Sign with Phantom)</span>
+                <span>Initialize Tender (Sign On-Chain)</span>
               </button>
             </div>
 
-            <!-- Form: Submit Sealed Bid with Phantom -->
+            <!-- Form: Submit Sealed Bid with Wallet -->
             <div class="bg-black/40 border border-slate-800/80 rounded-xl p-4 space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-cyan-300">Step 2: Submit Cryptographically Sealed Bid</span>
@@ -169,7 +179,7 @@
               </p>
               <button onclick="web3CommitBid()" id="btn-web3-commit" class="w-full py-2.5 px-4 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                <span>Commit Sealed Bid (Sign with Phantom)</span>
+                <span>Commit Sealed Bid (Sign On-Chain)</span>
               </button>
             </div>
 
@@ -449,18 +459,40 @@
       logs.prepend(d);
     }
 
-    // Phantom Wallet Adapter Integration
+    // Wallet Adapter Integration (Phantom + In-Browser Keypair)
     async function connectPhantomWallet() {
       try {
         logDevnet("Connecting Phantom wallet...", "normal");
         const pubkey = await window.BidTraceWeb3.walletManager.connect();
         connectedWalletPublicKey = pubkey;
-        updateWalletUI(true, pubkey.toBase58());
+        updateWalletUI(true, pubkey.toBase58(), false);
         logDevnet(`Phantom Connected: ${pubkey.toBase58()}`, "success");
         await refreshWalletBalance();
       } catch (err) {
-        logDevnet(`Wallet Error: ${err.message}`, "error");
-        alert(err.message);
+        logDevnet(`Notice: ${err.message}`, "warning");
+        const useInternal = confirm("No Phantom extension detected in this browser profile.\n\nWould you like to activate an Instant In-Browser Devnet Wallet instead? (No installation required, auto-funded with Devnet SOL!)");
+        if (useInternal) {
+          await connectInBrowserWallet();
+        }
+      }
+    }
+
+    async function connectInBrowserWallet() {
+      try {
+        logDevnet("Activating Instant In-Browser Devnet Wallet...", "normal");
+        const pubkey = await window.BidTraceWeb3.walletManager.createInBrowserWallet();
+        connectedWalletPublicKey = pubkey;
+        updateWalletUI(true, pubkey.toBase58(), true);
+        logDevnet(`In-Browser Keypair Active: ${pubkey.toBase58()}`, "success");
+        await refreshWalletBalance();
+
+        const bal = await window.BidTraceWeb3.walletManager.getBalance();
+        if (bal < 0.05) {
+          logDevnet("Wallet unfunded. Requesting initial 1 SOL Devnet airdrop...", "warning");
+          await requestDevnetAirdrop();
+        }
+      } catch (err) {
+        logDevnet(`Wallet creation failed: ${err.message}`, "error");
       }
     }
 
@@ -468,26 +500,34 @@
       try {
         await window.BidTraceWeb3.walletManager.disconnect();
         connectedWalletPublicKey = null;
-        updateWalletUI(false, null);
-        logDevnet("Phantom wallet disconnected", "warning");
+        updateWalletUI(false, null, false);
+        logDevnet("Wallet disconnected", "warning");
       } catch (err) {
         console.error(err);
       }
     }
 
-    function updateWalletUI(isConnected, pubkeyStr) {
+    function updateWalletUI(isConnected, pubkeyStr, isInternal = false) {
       const btnConnect = document.getElementById("btn-connect-phantom");
+      const btnInstant = document.getElementById("btn-instant-wallet");
       const pill = document.getElementById("wallet-connected-pill");
       const ind = document.getElementById("phantom-status-indicator");
+      const badge = document.getElementById("wallet-badge");
 
       if (isConnected && pubkeyStr) {
         btnConnect.classList.add("hidden");
+        btnInstant.classList.add("hidden");
         pill.classList.remove("hidden");
         document.getElementById("wallet-pubkey-display").innerText = `${pubkeyStr.slice(0, 4)}...${pubkeyStr.slice(-4)}`;
-        ind.innerText = `Connected: ${pubkeyStr.slice(0, 4)}...${pubkeyStr.slice(-4)}`;
-        ind.className = "text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono";
+        if (badge) {
+          badge.innerText = isInternal ? "DEVNET KEYPAIR" : "PHANTOM";
+          badge.className = isInternal ? "text-[9px] px-1 rounded bg-cyan-500/20 text-cyan-300 font-mono" : "text-[9px] px-1 rounded bg-purple-500/20 text-purple-300 font-mono";
+        }
+        ind.innerText = `Connected (${isInternal ? "In-Browser" : "Phantom"}): ${pubkeyStr.slice(0, 4)}...${pubkeyStr.slice(-4)}`;
+        ind.className = "text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono";
       } else {
         btnConnect.classList.remove("hidden");
+        btnInstant.classList.remove("hidden");
         pill.classList.add("hidden");
         ind.innerText = "Wallet Disconnected";
         ind.className = "text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400";
@@ -571,8 +611,9 @@
 
     async function web3InitializeTender() {
       if (!connectedWalletPublicKey) {
-        alert("Please connect your Phantom wallet first (click 'Connect Phantom' in the top right).");
-        return;
+        logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
+        await connectInBrowserWallet();
+        if (!connectedWalletPublicKey) return;
       }
 
       const tenderId = document.getElementById("input-tender-id").value.trim() || `TENDER-${Math.floor(Date.now() / 1000)}`;
@@ -598,7 +639,7 @@
         document.getElementById("devnet-derived-pda").innerText = `PDA: ${tenderPda.toBase58().slice(0, 12)}...`;
 
         const tx = new solanaWeb3.Transaction().add(instruction);
-        logDevnet("Prompting Phantom for transaction signature...", "warning");
+        logDevnet("Signing transaction and broadcasting to Devnet...", "warning");
 
         const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
         logDevnet(`>>> SUCCESS! Tender initialized on Solana Devnet!`, "success");
@@ -614,8 +655,9 @@
 
     async function web3CommitBid() {
       if (!connectedWalletPublicKey) {
-        alert("Please connect your Phantom wallet first.");
-        return;
+        logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
+        await connectInBrowserWallet();
+        if (!connectedWalletPublicKey) return;
       }
       if (!activeWeb3TenderPda) {
         // Derive default from input tender id
@@ -651,7 +693,7 @@
         });
 
         const tx = new solanaWeb3.Transaction().add(instruction);
-        logDevnet("Prompting Phantom to sign sealed bid submission...", "warning");
+        logDevnet("Signing sealed bid submission and broadcasting to Devnet...", "warning");
 
         const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
         logDevnet(`>>> SUCCESS! Sealed Bid committed on Solana Devnet!`, "success");

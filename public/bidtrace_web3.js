@@ -262,6 +262,8 @@ function createRecordAwardInstruction({
 class BidTraceWalletManager {
   constructor() {
     this.provider = null;
+    this.keypair = null;
+    this.isInternal = false;
     this.publicKey = null;
     this.isConnected = false;
     this.onStateChangeCallbacks = [];
@@ -287,9 +289,11 @@ class BidTraceWalletManager {
   async connect() {
     const provider = this.getWalletProvider();
     if (!provider) {
-      throw new Error("No Solana wallet extension detected. Please install Phantom (https://phantom.app/) or use the Automated Devnet Relayer.");
+      throw new Error("No Solana wallet extension detected. You can either install Phantom (https://phantom.app/) or click 'Use In-Browser Wallet' to generate an instant zero-install Devnet keypair directly in your browser.");
     }
     this.provider = provider;
+    this.keypair = null;
+    this.isInternal = false;
     const resp = await this.provider.connect();
     this.publicKey = resp.publicKey;
     this.isConnected = true;
@@ -315,10 +319,36 @@ class BidTraceWalletManager {
     return this.publicKey;
   }
 
+  async createInBrowserWallet() {
+    let secret = localStorage.getItem("bidtrace_devnet_secret");
+    let kp;
+    if (secret) {
+      try {
+        kp = solanaWeb3.Keypair.fromSecretKey(Uint8Array.from(JSON.parse(secret)));
+      } catch (e) {
+        kp = solanaWeb3.Keypair.generate();
+        localStorage.setItem("bidtrace_devnet_secret", JSON.stringify(Array.from(kp.secretKey)));
+      }
+    } else {
+      kp = solanaWeb3.Keypair.generate();
+      localStorage.setItem("bidtrace_devnet_secret", JSON.stringify(Array.from(kp.secretKey)));
+    }
+    this.keypair = kp;
+    this.publicKey = kp.publicKey;
+    this.isInternal = true;
+    this.isConnected = true;
+    this.provider = null;
+    this.notifyState();
+    return this.publicKey;
+  }
+
   async disconnect() {
     if (this.provider) {
-      await this.provider.disconnect();
+      try { await this.provider.disconnect(); } catch (e) {}
     }
+    this.provider = null;
+    this.keypair = null;
+    this.isInternal = false;
     this.publicKey = null;
     this.isConnected = false;
     this.notifyState();
@@ -332,6 +362,7 @@ class BidTraceWalletManager {
     for (const cb of this.onStateChangeCallbacks) {
       cb({
         isConnected: this.isConnected,
+        isInternal: this.isInternal,
         publicKey: this.publicKey ? this.publicKey.toBase58() : null
       });
     }
@@ -339,12 +370,16 @@ class BidTraceWalletManager {
 
   async getBalance() {
     if (!this.publicKey) return 0;
-    const lamports = await devnetConnection.getBalance(this.publicKey);
-    return lamports / solanaWeb3.LAMPORTS_PER_SOL;
+    try {
+      const lamports = await devnetConnection.getBalance(this.publicKey);
+      return lamports / solanaWeb3.LAMPORTS_PER_SOL;
+    } catch (e) {
+      return 0;
+    }
   }
 
-  async signAndSendTransaction(transaction) {
-    if (!this.provider || !this.publicKey) {
+  async signAndSendTransaction(transaction, additionalSigners = []) {
+    if (!this.isConnected || !this.publicKey) {
       throw new Error("Wallet not connected");
     }
 
@@ -352,15 +387,33 @@ class BidTraceWalletManager {
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = this.publicKey;
 
-    // Use Phantom's signAndSendTransaction
-    const { signature } = await this.provider.signAndSendTransaction(transaction);
-    await devnetConnection.confirmTransaction({
-      signature,
-      blockhash,
-      lastValidBlockHeight
-    }, "confirmed");
-
-    return signature;
+    if (this.isInternal && this.keypair) {
+      transaction.sign(this.keypair, ...additionalSigners);
+      const rawTx = transaction.serialize();
+      const signature = await devnetConnection.sendRawTransaction(rawTx, { skipPreflight: false });
+      
+      // Poll confirmation
+      for (let i = 0; i < 35; i++) {
+        const st = await devnetConnection.getSignatureStatus(signature);
+        if (st && st.value && (st.value.confirmationStatus === 'confirmed' || st.value.confirmationStatus === 'finalized')) {
+          return signature;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      return signature;
+    } else if (this.provider) {
+      const { signature } = await this.provider.signAndSendTransaction(transaction);
+      for (let i = 0; i < 35; i++) {
+        const st = await devnetConnection.getSignatureStatus(signature);
+        if (st && st.value && (st.value.confirmationStatus === 'confirmed' || st.value.confirmationStatus === 'finalized')) {
+          return signature;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      return signature;
+    } else {
+      throw new Error("No signer provider available");
+    }
   }
 }
 
