@@ -248,7 +248,8 @@
           log(`[REAL CRYPTO] ${r.bidder_name} committed to PDA ${r.pda.slice(0, 16)}... | Hash: ${r.commitment_hash.slice(0, 16)}...`, "success");
 
           const card = document.createElement("div");
-          card.id = `card-${r.bidder_name.toLowerCase().replace(/[^a-z]/g, '')}`;
+          const cardKey = r.bidder_name.toLowerCase().replace(/[^a-z]/g, '');
+          card.id = `card-${cardKey}`;
           card.className = "bg-slate-900 border border-slate-800 rounded-xl p-4 transition-all";
           card.innerHTML = `
             <div class="flex items-start justify-between">
@@ -260,8 +261,10 @@
                 <p class="text-xs text-slate-400 mt-0.5">Payload: AES-256-GCM Encrypted</p>
               </div>
               <div class="text-right">
-                <div class="text-lg font-bold text-slate-300 mono">$${r.bid_amount.toLocaleString()}</div>
-                <div class="text-[11px] text-slate-500">Status: <span id="tag-${card.id}" class="text-slate-400">Pre-Reveal (Encrypted)</span></div>
+                <div id="price-${card.id}" class="text-lg font-bold text-amber-400/90 mono flex items-center justify-end gap-1.5">
+                  <span class="text-xs">🔒</span> $ ••••••••
+                </div>
+                <div class="text-[11px] text-slate-500">Status: <span id="tag-${card.id}" class="text-amber-400 font-medium">Sealed (Encrypted)</span></div>
               </div>
             </div>
             <div class="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs mono text-slate-400">
@@ -321,9 +324,18 @@
         document.getElementById("step-revealed").className = "px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5";
 
         for (const rev of res.revealed) {
-          const cardId = `tag-card-${rev.bidder_name.toLowerCase().replace(/[^a-z]/g, '')}`;
-          const el = document.getElementById(cardId);
-          if (el) el.innerText = "Revealed & Verified";
+          const cardKey = rev.bidder_name.toLowerCase().replace(/[^a-z]/g, '');
+          const cardId = `card-${cardKey}`;
+          const priceEl = document.getElementById(`price-${cardId}`);
+          if (priceEl) {
+            priceEl.innerHTML = `<span class="text-xs text-emerald-400">🔓</span> $${rev.amount.toLocaleString()}`;
+            priceEl.className = "text-lg font-bold text-slate-200 mono flex items-center justify-end gap-1.5";
+          }
+          const tagEl = document.getElementById(`tag-${cardId}`);
+          if (tagEl) {
+            tagEl.innerText = "Revealed & Verified";
+            tagEl.className = "text-emerald-400 font-medium";
+          }
         }
         log("All 3 bids decrypted and preimage hashes verified 100% on-chain in Python!", "success");
       }
