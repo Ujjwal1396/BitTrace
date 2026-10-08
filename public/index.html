@@ -187,7 +187,17 @@
             <div class="bg-black/40 border border-slate-800/80 rounded-xl p-4 space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-cyan-300">Step 2: Submit Cryptographically Sealed Bid</span>
-                <span class="text-[11px] mono text-slate-400">Non-Custodial Bid PDA</span>
+                <span class="text-[11px] mono text-slate-400" id="step2-bidder-pda-preview">Non-Custodial Bid PDA</span>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Target Tender:</span>
+                  <span id="step2-target-tender" class="mono font-semibold text-purple-300">TENDER-DEVNET-3810</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Submitting Contractor Wallet:</span>
+                  <span id="step2-active-contractor" class="mono font-semibold text-cyan-300">Wallet Disconnected</span>
+                </div>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input id="input-bidder-name" type="text" value="Apex Infrastructure" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" placeholder="Contractor Name">
@@ -657,12 +667,32 @@
 
     // Direct Web3 Actions with Phantom
     let activeWeb3TenderPda = null;
+    let activeTenderRecord = null;
+
+    try {
+      const saved = localStorage.getItem("bidtrace_active_tender_record");
+      if (saved) {
+        activeTenderRecord = JSON.parse(saved);
+      }
+    } catch (e) {}
+
+    // Default to recent TENDER-DEVNET-3810 if no record exists
+    if (!activeTenderRecord) {
+      activeTenderRecord = {
+        tenderId: "TENDER-DEVNET-3810",
+        tenderPda: "HY4bobEubw76nw62ZaFFyrw9gqYnq4aMWUWab9Xbip9B",
+        authority: "C75Wj8uyW91AZTALUVKnJX43MSVb6avnnBMpAeQjjuLD"
+      };
+    }
 
     function generateFreshTenderId() {
       const randNum = Math.floor(1000 + Math.random() * 9000);
       const newId = `TENDER-DEVNET-${randNum}`;
       const input = document.getElementById("input-tender-id");
       if (input) input.value = newId;
+      activeTenderRecord = null;
+      activeWeb3TenderPda = null;
+      localStorage.removeItem("bidtrace_active_tender_record");
       updateTenderLiveStatus();
       return newId;
     }
@@ -671,11 +701,14 @@
       const badge = document.getElementById("tender-live-status-badge");
       const details = document.getElementById("tender-live-status-details");
       const pdaDisplay = document.getElementById("devnet-derived-pda");
+      const step2TenderDisplay = document.getElementById("step2-target-tender");
+      const step2ContractorDisplay = document.getElementById("step2-active-contractor");
+      const step2BidPdaPreview = document.getElementById("step2-bidder-pda-preview");
       const input = document.getElementById("input-tender-id");
       if (!input) return;
 
-      const tenderId = input.value.trim();
-      if (!tenderId) {
+      const currentTenderId = input.value.trim();
+      if (!currentTenderId) {
         if (badge) {
           badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400";
           badge.innerText = "Empty ID";
@@ -683,45 +716,81 @@
         return;
       }
 
-      const activeWallet = connectedWalletPublicKey;
-      if (!activeWallet || !window.BidTraceWeb3) {
-        if (pdaDisplay) pdaDisplay.innerText = "Connect wallet to derive PDA";
-        return;
+      // 1. Identify Target Tender PDA
+      // If we already have an active tender record matching this ID, use its PDA so ANY bidder wallet can bid!
+      let targetTenderPda = null;
+      let tenderCreatorAuthority = null;
+
+      if (activeTenderRecord && activeTenderRecord.tenderId === currentTenderId && activeTenderRecord.tenderPda) {
+        targetTenderPda = new solanaWeb3.PublicKey(activeTenderRecord.tenderPda);
+        tenderCreatorAuthority = activeTenderRecord.authority;
+      } else if (connectedWalletPublicKey) {
+        const [derived] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, currentTenderId);
+        targetTenderPda = derived;
+        tenderCreatorAuthority = connectedWalletPublicKey.toBase58();
       }
 
-      try {
-        const [pda] = window.BidTraceWeb3.findTenderPDA(activeWallet, tenderId);
-        activeWeb3TenderPda = pda;
-        if (pdaDisplay) pdaDisplay.innerText = `PDA: ${pda.toBase58().slice(0, 10)}...`;
+      activeWeb3TenderPda = targetTenderPda;
 
-        const st = await window.BidTraceWeb3.fetchTenderState(pda);
-        if (!st || !st.exists) {
-          if (badge) {
-            badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30";
-            badge.innerText = "Ready to Initialize";
-          }
-          if (details) {
-            details.innerHTML = `<span class="text-purple-300 font-medium">Unallocated PDA: Ready to initialize on Devnet.</span> <span class="text-slate-500">Free testnet bond</span>`;
-          }
-        } else if (!st.isExpired) {
-          if (badge) {
-            badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-            badge.innerText = `● Active (${st.slotsRemaining} slots remaining)`;
-          }
-          if (details) {
-            details.innerHTML = `<span class="text-emerald-400 font-medium">✓ Tender is Active on-chain!</span> <span class="text-slate-400">Open for sealed bids until slot ${st.subDeadline}.</span>`;
-          }
-        } else {
-          if (badge) {
-            badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30";
-            badge.innerText = `✕ Expired @ Slot ${st.subDeadline}`;
-          }
-          if (details) {
-            details.innerHTML = `<span class="text-rose-400 font-medium">✕ Deadline has passed. Click '⚡ New ID' above to start a fresh tender.</span>`;
-          }
+      // Update Step 2 live indicators
+      if (step2ContractorDisplay) {
+        step2ContractorDisplay.innerText = connectedWalletPublicKey 
+          ? `${connectedWalletPublicKey.toBase58().slice(0, 4)}...${connectedWalletPublicKey.toBase58().slice(-4)}` 
+          : "Wallet Disconnected";
+      }
+
+      if (targetTenderPda) {
+        if (pdaDisplay) pdaDisplay.innerText = `PDA: ${targetTenderPda.toBase58().slice(0, 10)}...`;
+        if (step2TenderDisplay) step2TenderDisplay.innerText = `${currentTenderId} (${targetTenderPda.toBase58().slice(0, 8)}...)`;
+
+        if (connectedWalletPublicKey) {
+          try {
+            const [bPda] = window.BidTraceWeb3.findBidCommitmentPDA(targetTenderPda, connectedWalletPublicKey);
+            if (step2BidPdaPreview) step2BidPdaPreview.innerText = `Bid PDA: ${bPda.toBase58().slice(0, 10)}...`;
+          } catch(e) {}
         }
-      } catch (e) {
-        console.warn("Status update error:", e);
+
+        try {
+          const st = await window.BidTraceWeb3.fetchTenderState(targetTenderPda);
+          if (!st || !st.exists) {
+            if (badge) {
+              badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30";
+              badge.innerText = "Ready to Initialize";
+            }
+            if (details) {
+              details.innerHTML = `<span class="text-purple-300 font-medium">Unallocated PDA: Ready to initialize on Devnet.</span> <span class="text-slate-500">Free testnet bond</span>`;
+            }
+          } else if (!st.isExpired) {
+            // Persist the verified active tender
+            if (!activeTenderRecord || activeTenderRecord.tenderId !== currentTenderId) {
+              activeTenderRecord = {
+                tenderId: currentTenderId,
+                tenderPda: targetTenderPda.toBase58(),
+                authority: tenderCreatorAuthority
+              };
+              localStorage.setItem("bidtrace_active_tender_record", JSON.stringify(activeTenderRecord));
+            }
+            if (badge) {
+              badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+              badge.innerText = `● Active (${st.slotsRemaining} slots remaining)`;
+            }
+            if (details) {
+              details.innerHTML = `<span class="text-emerald-400 font-medium">✓ Tender is Active on-chain!</span> <span class="text-slate-400">Open for sealed bids until slot ${st.subDeadline}.</span>`;
+            }
+          } else {
+            if (badge) {
+              badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30";
+              badge.innerText = `✕ Expired @ Slot ${st.subDeadline}`;
+            }
+            if (details) {
+              details.innerHTML = `<span class="text-rose-400 font-medium">✕ Deadline has passed. Click '⚡ New ID' above to start a fresh tender.</span>`;
+            }
+          }
+        } catch (e) {
+          console.warn("Status update error:", e);
+        }
+      } else {
+        if (pdaDisplay) pdaDisplay.innerText = "Connect wallet to derive PDA";
       }
     }
 
@@ -769,6 +838,12 @@
         });
 
         activeWeb3TenderPda = tenderPda;
+        activeTenderRecord = {
+          tenderId: tenderId,
+          tenderPda: tenderPda.toBase58(),
+          authority: connectedWalletPublicKey.toBase58()
+        };
+        localStorage.setItem("bidtrace_active_tender_record", JSON.stringify(activeTenderRecord));
         document.getElementById("devnet-derived-pda").innerText = `PDA: ${tenderPda.toBase58().slice(0, 12)}...`;
 
         const tx = new solanaWeb3.Transaction().add(instruction);
@@ -813,14 +888,28 @@
           return;
         }
 
-        const [derived] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
-        activeWeb3TenderPda = derived;
+        // Target the active tender PDA (don't re-derive with bidder's key as authority!)
+        let targetTenderPda = null;
+        if (activeTenderRecord && activeTenderRecord.tenderId === tenderId && activeTenderRecord.tenderPda) {
+          targetTenderPda = new solanaWeb3.PublicKey(activeTenderRecord.tenderPda);
+        } else if (activeWeb3TenderPda) {
+          targetTenderPda = activeWeb3TenderPda;
+        } else if (connectedWalletPublicKey) {
+          const [derived] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
+          targetTenderPda = derived;
+        }
+
+        if (!targetTenderPda) {
+          alert("No valid Tender PDA found.");
+          return;
+        }
+        activeWeb3TenderPda = targetTenderPda;
 
         // Verify Tender exists on-chain and check deadline before committing
         logDevnet(`Verifying Tender account ${activeWeb3TenderPda.toBase58().slice(0, 10)}... on Devnet...`, "normal");
         const tenderState = await window.BidTraceWeb3.fetchTenderState(activeWeb3TenderPda);
         if (!tenderState || !tenderState.exists) {
-          const errMsg = `Tender '${tenderId}' has not been initialized on Devnet yet!\n\nPlease click 'Step 1: Initialize Tender (Sign On-Chain)' first to create the tender before committing bids.`;
+          const errMsg = `Tender '${tenderId}' (PDA: ${activeWeb3TenderPda.toBase58().slice(0, 8)}...) has not been initialized on Devnet yet!\n\nPlease click 'Step 1: Initialize Tender (Sign On-Chain)' first to create the tender before committing bids.`;
           logDevnet(`[PREREQUISITE REQUIRED] ${errMsg}`, "error");
           alert(errMsg);
           return;
@@ -833,7 +922,7 @@
           return;
         }
 
-        // Check if this wallet has already submitted a bid for this tender
+        // Check if this specific connected wallet has already submitted a bid for this tender
         const [existingBidPda] = window.BidTraceWeb3.findBidCommitmentPDA(activeWeb3TenderPda, connectedWalletPublicKey);
         const existingBidAcc = await window.BidTraceWeb3.devnetConnection.getAccountInfo(existingBidPda);
         if (existingBidAcc) {
@@ -1117,12 +1206,17 @@
       pollDevnetStatus();
       setInterval(pollDevnetStatus, 4000);
 
-      generateFreshTenderId();
       const tenderInput = document.getElementById("input-tender-id");
       if (tenderInput) {
+        if (activeTenderRecord && activeTenderRecord.tenderId) {
+          tenderInput.value = activeTenderRecord.tenderId;
+        } else {
+          generateFreshTenderId();
+        }
         tenderInput.addEventListener("input", updateTenderLiveStatus);
         tenderInput.addEventListener("change", updateTenderLiveStatus);
       }
+      updateTenderLiveStatus();
 
       // Auto-detect Phantom if already authorized & register state listener
       if (window.BidTraceWeb3 && window.BidTraceWeb3.walletManager.isPhantomInstalled()) {
