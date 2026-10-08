@@ -830,6 +830,16 @@
           return;
         }
 
+        // Check if this wallet has already submitted a bid for this tender
+        const [existingBidPda] = window.BidTraceWeb3.findBidCommitmentPDA(activeWeb3TenderPda, connectedWalletPublicKey);
+        const existingBidAcc = await window.BidTraceWeb3.devnetConnection.getAccountInfo(existingBidPda);
+        if (existingBidAcc) {
+          const errMsg = `Your connected wallet (${connectedWalletPublicKey.toBase58().slice(0, 8)}...) has ALREADY committed a sealed bid (PDA: ${existingBidPda.toBase58().slice(0, 8)}...) to this tender!\n\nIn decentralized sealed-bid protocols, each contractor must have their own distinct wallet address (1 wallet = 1 sealed bid per tender).\n\nTo submit a competing bid (e.g. for '${document.getElementById("input-bidder-name").value.trim()}'):\n1. In Phantom: Click your account icon at the top and switch to 'Account 2' (or create a new account in Phantom).\n2. If needed, click '+ Airdrop' on this page to get free Devnet SOL.\n3. Click 'Commit Sealed Bid' to record your second contractor on-chain!\n\n(Or click '⚡ New ID' and 'Initialize Tender' to start another fresh tender).`;
+          logDevnet(`[ALREADY COMMITTED] This wallet has already committed a sealed bid to this tender (PDA: ${existingBidPda.toBase58()}). Each contractor must submit from their own wallet address!`, "warning");
+          alert(errMsg);
+          return;
+        }
+
         const contractorName = document.getElementById("input-bidder-name").value.trim() || "Apex Infrastructure";
         const amount = parseInt(document.getElementById("input-bid-amount").value) || 3850000;
 

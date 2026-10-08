@@ -399,7 +399,11 @@ class BidTraceWalletManager {
         const logs = sim.value.logs || [];
         const logsStr = logs.join(" ");
         if (logsStr.includes("already in use") || logsStr.includes("Allocate: account")) {
-          throw new Error("Tender account already exists on-chain! Please click '⚡ New Tender ID' to generate a fresh unique tender ID.");
+          if (logsStr.includes("CommitBid")) {
+            throw new Error("This wallet has already committed a sealed bid to this tender! Each wallet is restricted to 1 sealed bid per tender to prevent sybil attacks. To submit a competing bid, switch to another account in Phantom.");
+          } else {
+            throw new Error("Tender account already exists on-chain! Please click '⚡ New ID' to generate a fresh unique tender ID.");
+          }
         } else if (logsStr.includes("SubmissionDeadlineExceeded") || logsStr.includes("6002")) {
           throw new Error("The submission window for this Tender has expired! Please initialize a fresh tender to submit bids.");
         } else if (logsStr.includes("insufficient funds") || logsStr.includes("0x1")) {
