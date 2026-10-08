@@ -1,0 +1,318 @@
+{
+  "address": "x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ",
+  "metadata": {
+    "name": "bidtrace",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "BidTrace - Incorruptible Cryptographic Deadline-Lock for Procurement"
+  },
+  "instructions": [
+    {
+      "name": "initialize_tender",
+      "discriminator": [35, 122, 240, 102, 12, 18, 17, 104],
+      "accounts": [
+        {
+          "name": "tender",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [116, 101, 110, 100, 101, 114]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "arg",
+                "path": "tender_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "tender_id",
+          "type": "string"
+        },
+        {
+          "name": "submission_deadline_slot",
+          "type": "u64"
+        },
+        {
+          "name": "reveal_deadline_slot",
+          "type": "u64"
+        },
+        {
+          "name": "bid_deposit",
+          "type": "u64"
+        },
+        {
+          "name": "authorized_bidders_root",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "commit_bid",
+      "discriminator": [41, 124, 185, 226, 169, 111, 23, 103],
+      "accounts": [
+        {
+          "name": "tender",
+          "writable": true
+        },
+        {
+          "name": "bid_commitment",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [98, 105, 100]
+              },
+              {
+                "kind": "account",
+                "path": "tender"
+              },
+              {
+                "kind": "account",
+                "path": "bidder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bidder",
+          "signer": true
+        },
+        {
+          "name": "fee_payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "commitment_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "whitelist_proof",
+          "type": {
+            "option": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "lock_tender",
+      "discriminator": [223, 137, 237, 104, 103, 203, 115, 62],
+      "accounts": [
+        {
+          "name": "tender",
+          "writable": true
+        },
+        {
+          "name": "caller",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reveal_bid",
+      "discriminator": [128, 77, 230, 219, 12, 172, 137, 60],
+      "accounts": [
+        {
+          "name": "tender",
+          "writable": true
+        },
+        {
+          "name": "bid_commitment",
+          "writable": true
+        },
+        {
+          "name": "revealer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "bidder_recipient",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "salt",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "ciphertext_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "bid_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "record_award",
+      "discriminator": [136, 17, 14, 109, 107, 110, 151, 146],
+      "accounts": [
+        {
+          "name": "tender",
+          "writable": true
+        },
+        {
+          "name": "winning_bid",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "rationale_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Tender",
+      "discriminator": [198, 140, 240, 169, 171, 19, 14, 109]
+    },
+    {
+      "name": "BidCommitment",
+      "discriminator": [211, 222, 104, 76, 213, 102, 121, 23]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidSubmissionDeadline",
+      "msg": "Submission deadline slot must be in the future."
+    },
+    {
+      "code": 6001,
+      "name": "InvalidRevealDeadline",
+      "msg": "Reveal deadline slot must be strictly after the submission deadline slot."
+    },
+    {
+      "code": 6002,
+      "name": "SubmissionDeadlineExceeded",
+      "msg": "Submission deadline has passed. Commitments are frozen."
+    },
+    {
+      "code": 6003,
+      "name": "TenderAlreadyLocked",
+      "msg": "Tender is already locked."
+    },
+    {
+      "code": 6004,
+      "name": "SubmissionDeadlineNotReached",
+      "msg": "Submission deadline has not been reached yet."
+    },
+    {
+      "code": 6005,
+      "name": "TenderNotLocked",
+      "msg": "Tender is not in locked state."
+    },
+    {
+      "code": 6006,
+      "name": "UnauthorizedBidder",
+      "msg": "Bidder is not in the authorized whitelist."
+    },
+    {
+      "code": 6007,
+      "name": "InvalidRevealHash",
+      "msg": "Provided reveal data does not match the committed hash."
+    },
+    {
+      "code": 6008,
+      "name": "BidAlreadyRevealed",
+      "msg": "Bid has already been revealed."
+    },
+    {
+      "code": 6009,
+      "name": "RevealWindowExpired",
+      "msg": "Reveal window has expired. Reveals are closed."
+    },
+    {
+      "code": 6010,
+      "name": "RevealWindowActive",
+      "msg": "Reveal window is still active and unrevealed bids remain. Early award is prohibited."
+    },
+    {
+      "code": 6011,
+      "name": "WinnerNotRevealed",
+      "msg": "Winning bidder has not revealed their bid."
+    },
+    {
+      "code": 6012,
+      "name": "WinnerNotLowestBid",
+      "msg": "Selected winner is not the lowest compliant revealed bid."
+    },
+    {
+      "code": 6013,
+      "name": "TenderIdTooLong",
+      "msg": "Tender ID exceeds maximum allowed length of 32 characters."
+    },
+    {
+      "code": 6014,
+      "name": "InsufficientDeposit",
+      "msg": "Insufficient deposit attached for bid commitment bond."
+    }
+  ]
+}

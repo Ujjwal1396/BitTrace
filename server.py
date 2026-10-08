@@ -40,6 +40,39 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
                 "receipts_count": len(state.bidders_receipts)
             })
             return
+
+        if self.path == "/api/devnet/status":
+            devnet_slot = None
+            try:
+                import urllib.request
+                req = urllib.request.Request(
+                    "https://api.devnet.solana.com",
+                    data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "getSlot"}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    res = json.loads(resp.read().decode("utf-8"))
+                    devnet_slot = res.get("result", 0)
+            except Exception:
+                pass
+
+            last_run = None
+            last_run_path = os.path.join(os.path.dirname(__file__), "devnet_last_run.json")
+            if os.path.exists(last_run_path):
+                try:
+                    with open(last_run_path, "r", encoding="utf-8") as f:
+                        last_run = json.load(f)
+                except Exception:
+                    pass
+
+            self.send_json({
+                "cluster": "devnet",
+                "program_id": "x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ",
+                "deployer_pubkey": "GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU",
+                "devnet_slot": devnet_slot,
+                "last_run": last_run
+            })
+            return
         # Default static file serving (index.html, etc.)
         return super().do_GET()
 
@@ -271,6 +304,33 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
             }
             result = verify_proof_bundle(target_receipt, raw_state)
             self.send_json({"status": "ok", "audit_report": result})
+
+        elif self.path == "/api/devnet/run-pipeline":
+            import subprocess
+            try:
+                proc = subprocess.run(
+                    ["wsl", "-e", "bash", "-c", "node scripts/devnet_runner.js"],
+                    cwd=os.path.dirname(__file__),
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                last_run_path = os.path.join(os.path.dirname(__file__), "devnet_last_run.json")
+                if os.path.exists(last_run_path):
+                    with open(last_run_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    self.send_json({
+                        "status": "ok",
+                        "data": data,
+                        "stdout": proc.stdout
+                    })
+                else:
+                    self.send_json({
+                        "status": "error",
+                        "message": proc.stderr or proc.stdout or "Pipeline failed to produce output"
+                    }, 500)
+            except Exception as e:
+                self.send_json({"status": "error", "message": str(e)}, 500)
 
         else:
             self.send_json({"error": "Endpoint not found"}, 404)

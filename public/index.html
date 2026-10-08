@@ -3,193 +3,443 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BidTrace — Cryptographic Deadline-Lock for Procurement</title>
+  <title>BidTrace — Cryptographic Procurement Protocol on Solana</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <script src="/solanaWeb3.min.js"></script>
+  <script src="/bidtrace_web3.js"></script>
   <style>
     @keyframes pulse-glow {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.85; transform: scale(1.02); }
+      50% { opacity: 0.8; transform: scale(1.02); }
     }
     .pulse-badge { animation: pulse-glow 2s infinite ease-in-out; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .phantom-btn {
+      background: linear-gradient(135deg, #ab9ff2 0%, #512da8 100%);
+    }
+    .phantom-btn:hover {
+      background: linear-gradient(135deg, #bbaef5 0%, #5e35b1 100%);
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen antialiased p-4 md:p-8">
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased p-3 md:p-6 selection:bg-indigo-500 selection:text-white">
   <div class="max-w-6xl mx-auto space-y-6">
 
     <!-- Top Header -->
-    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
       <div>
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-500/20">
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-purple-600 flex items-center justify-center font-black text-2xl shadow-lg shadow-indigo-500/20">
             B
           </div>
           <div>
-            <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              BidTrace
-              <span id="backend-status" class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">● Python Engine Connected</span>
-            </h1>
-            <p class="text-xs text-slate-400">Incorruptible Cryptographic Deadline-Lock Protocol for Competitive Procurement</p>
+            <div class="flex items-center gap-2">
+              <h1 class="text-2xl font-black tracking-tight text-white">BidTrace</h1>
+              <a href="https://explorer.solana.com/address/x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ?cluster=devnet" target="_blank" rel="noreferrer" class="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold hover:bg-emerald-500/20 transition flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-badge"></span> Solana Devnet Live
+              </a>
+            </div>
+            <p class="text-xs text-slate-400">Cryptographic Deadline-Lock & Verifiable Procurement Protocol</p>
           </div>
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="bg-slate-900 border border-slate-800 px-3.5 py-1.5 rounded-lg text-right">
-          <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Solana Slot</div>
-          <div id="slot-counter" class="text-lg font-bold text-cyan-400 mono">1000</div>
+
+      <!-- Header Right: Slot counters & Phantom Wallet button -->
+      <div class="flex flex-wrap items-center gap-3">
+        <!-- Live Devnet Slot -->
+        <div class="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-right">
+          <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Devnet Slot</div>
+          <div id="devnet-slot-display" class="text-sm font-bold text-cyan-400 mono">Connecting...</div>
         </div>
-        <button id="btn-auto-demo" onclick="runAutomatedDemo()" class="px-4 py-2 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white rounded-lg font-semibold text-sm shadow-md shadow-indigo-500/20 transition flex items-center gap-2 cursor-pointer">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          Run 3-Min Live Demo
-        </button>
-        <button onclick="resetState()" title="Reset demo to start" class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 rounded-lg text-xs transition cursor-pointer">
+
+        <!-- Phantom Wallet Widget -->
+        <div id="wallet-section" class="flex items-center">
+          <button id="btn-connect-phantom" onclick="connectPhantomWallet()" class="phantom-btn text-white px-3.5 py-2 rounded-lg font-semibold text-xs shadow-md shadow-purple-900/30 transition flex items-center gap-2 cursor-pointer">
+            <svg class="w-4 h-4" viewBox="0 0 128 128" fill="none"><path d="M110.6 57.6C107.5 35.8 89.2 19 67 19c-24.8 0-45 20.2-45 45 0 24.8 20.2 45 45 45h6.5c19 0 34.5-15.5 34.5-34.5 0-5.7-1.4-11.1-4-15.8 4.4-.3 6.6-.9 6.6-1.1z" fill="#FFF"/><circle cx="51.5" cy="54.5" r="7.5" fill="#512DA8"/><circle cx="78.5" cy="54.5" r="7.5" fill="#512DA8"/></svg>
+            <span>Connect Phantom</span>
+          </button>
+
+          <!-- Connected Wallet Pill (Hidden by default) -->
+          <div id="wallet-connected-pill" class="hidden flex items-center gap-2 bg-slate-900 border border-purple-500/30 rounded-lg px-3 py-1.5 text-xs">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-badge"></span>
+            <div class="text-left">
+              <div id="wallet-pubkey-display" class="font-bold text-purple-300 mono text-[11px]">GFRR...wSzU</div>
+              <div id="wallet-balance-display" class="text-[10px] text-slate-400">0.00 SOL</div>
+            </div>
+            <button onclick="requestDevnetAirdrop()" title="Request 1 Devnet SOL" class="ml-1 px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 rounded cursor-pointer border border-purple-500/30">
+              +Airdrop
+            </button>
+            <button onclick="disconnectPhantomWallet()" title="Disconnect Wallet" class="text-slate-500 hover:text-rose-400 font-bold ml-1 cursor-pointer">
+              &times;
+            </button>
+          </div>
+        </div>
+
+        <!-- Reset Button -->
+        <button onclick="resetState()" title="Reset state" class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 rounded-lg text-xs transition cursor-pointer">
           &#8634;
         </button>
       </div>
     </header>
 
-    <!-- Tender Status Banner -->
-    <section class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm backdrop-blur">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div class="flex items-center gap-2 mb-1">
-            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300">Tender Ref</span>
-            <span id="tender-id-display" class="font-bold text-slate-200 mono">TENDER-2026-HIGHWAY-402</span>
-          </div>
-          <div class="text-xs text-slate-400">Tender PDA: <span id="tender-pda-display" class="mono text-cyan-400">Click 'Initialize Tender' to create</span></div>
-        </div>
-
-        <!-- Lifecycle Steps -->
-        <div class="flex items-center gap-2 text-xs font-medium">
-          <div id="step-active" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-badge"></span> 1. Active (Intake)
-          </div>
-          <span class="text-slate-600">&rarr;</span>
-          <div id="step-locked" class="px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/50 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-slate-500"></span> 2. Locked
-          </div>
-          <span class="text-slate-600">&rarr;</span>
-          <div id="step-revealed" class="px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/50 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-slate-500"></span> 3. Revealed
-          </div>
-          <span class="text-slate-600">&rarr;</span>
-          <div id="step-awarded" class="px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/50 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-slate-500"></span> 4. Awarded
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Main Grid: Bids & Interactive Controls -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- Left Column: The 3 Bidders (2 cols) -->
-      <div class="lg:col-span-2 space-y-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-            <span>Tender Submissions (Non-Custodial PDAs)</span>
-            <span id="badge-count" class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">0 Committed</span>
-          </h2>
-          <span class="text-xs text-slate-500">Flaw A Solved (No Operator Gatekeeper)</span>
-        </div>
-
-        <!-- Bidder Cards Container -->
-        <div class="space-y-3" id="bidders-container">
-          <div id="empty-state" class="p-8 text-center border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs">
-            No bids committed yet. Click <span class="text-cyan-400 font-semibold">'1. Initialize Tender'</span> then <span class="text-cyan-400 font-semibold">'2. Commit 3 Bids'</span> to watch Python execute the real cryptography!
-          </div>
-        </div>
-
-        <!-- Defense Activity Console Log -->
-        <div class="bg-black/60 border border-slate-800 rounded-xl p-4 mono text-xs space-y-1.5">
-          <div class="text-slate-500 uppercase tracking-wider font-bold mb-2 flex items-center justify-between">
-            <span>Live Solana Anchor Consensus & Defense Activity</span>
-            <span class="text-emerald-400 font-normal">Python Engine: Active</span>
-          </div>
-          <div id="console-logs" class="space-y-1 max-h-48 overflow-y-auto pr-2 text-slate-300">
-            <div class="text-slate-500">Waiting for actions... Click buttons on the right to trigger real protocol instructions.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right Column: Interactive Attack Playground (1 col) -->
-      <div class="space-y-4">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Interactive Control Playground</h2>
-
-        <!-- Action Panel -->
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-          <div class="text-xs text-slate-400">Execute real Anchor protocol instructions in Python:</div>
-
-          <!-- Step 1 & 2 Setup -->
-          <div class="space-y-2">
-            <button onclick="apiInitTender()" id="btn-init" class="w-full py-2.5 px-3 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
-              <span>1.</span> Initialize Tender (Deadline Slot 1050)
-            </button>
-            <button onclick="apiCommitThreeBids()" id="btn-commit" class="w-full py-2.5 px-3 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
-              <span>2.</span> Commit 3 Encrypted Bids (Direct PDAs)
-            </button>
-            <button onclick="apiLockTender()" id="btn-lock" class="w-full py-2.5 px-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
-              <span>3.</span> Advance Slot to 1060 & Lock Tender
-            </button>
-          </div>
-
-          <!-- Live Attack Simulations -->
-          <div class="border-t border-slate-800 pt-3">
-            <div class="text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">Simulate Database Attacks</div>
-            
-            <button onclick="apiAttackLateBid()" id="btn-attack-1" class="w-full py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 mb-2 cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-              Attack 1: Inject Late Bidder D
-            </button>
-
-            <button onclick="apiAttackTamperPrice()" id="btn-attack-2" class="w-full py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-              Attack 2: Tamper ACME Price
-            </button>
-          </div>
-
-          <!-- Finalization -->
-          <div class="border-t border-slate-800 pt-3">
-            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Protocol Finalization</div>
-            <button onclick="apiRevealBids()" id="btn-reveal" class="w-full py-2 px-3 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 mb-2 cursor-pointer">
-              Reveal Legitimate Bids
-            </button>
-            <button onclick="apiRecordAward()" id="btn-award" class="w-full py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
-              Record Tender Award (BuildCo)
-            </button>
-          </div>
-        </div>
-
-        <!-- Air-Gapped Offline Verifier Card -->
-        <div class="bg-gradient-to-b from-slate-900 to-slate-950 border border-cyan-500/30 rounded-xl p-4 shadow-lg shadow-cyan-500/5 space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="text-xs font-bold text-cyan-300 flex items-center gap-2">
-              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-              Air-Gapped Offline Verifier
-            </div>
-            <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 mono">Zero Backend</span>
-          </div>
-          <p class="text-xs text-slate-400">Verifies standalone <span class="mono text-slate-200">proof_bundle.json</span> against public Solana accounts without touching the BidTrace server:</p>
-          <button onclick="apiVerifyOffline()" class="w-full py-2.5 px-3 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
-            Run Air-Gapped Audit Check
-          </button>
-          <div id="verifier-output" class="hidden text-xs mono p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 space-y-1">
-            <div class="font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>&#10003;</span> AUDIT VERIFIED: Tamper-Free
-            </div>
-            <div id="verif-line-slot" class="text-[11px] text-emerald-200/80">Slot Committed: 1000 &le; 1050 [PASS]</div>
-            <div id="verif-line-hash" class="text-[11px] text-emerald-200/80">Preimage Hash Match: VALID [PASS]</div>
-            <div id="verif-line-crypto" class="text-[11px] text-emerald-200/80">AES-256-GCM Tag: OK [PASS]</div>
-          </div>
-        </div>
-
-      </div>
+    <!-- Mode Selector Tabs -->
+    <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
+      <button id="tab-devnet" onclick="switchTab('devnet')" class="px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border border-purple-500/40 cursor-pointer">
+        <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        <span>1. Live Solana Devnet (On-Chain Smart Contract)</span>
+      </button>
+      <button id="tab-simulator" onclick="switchTab('simulator')" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent transition flex items-center gap-2 cursor-pointer">
+        <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span>2. Protocol Engine Simulator & Attack Playground</span>
+      </button>
     </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: LIVE SOLANA DEVNET (ON-CHAIN ANCHOR CONTRACT)                     -->
+    <!-- ========================================================================= -->
+    <div id="panel-devnet" class="space-y-6">
+
+      <!-- Devnet Overview Banner -->
+      <section class="bg-gradient-to-r from-purple-950/40 via-slate-900 to-indigo-950/40 border border-purple-500/30 rounded-xl p-5 shadow-lg shadow-purple-500/5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">Anchor Program</span>
+              <span class="font-bold text-slate-200 mono text-xs">x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ</span>
+            </div>
+            <p class="text-xs text-slate-400">
+              Verified SBF bytecode on Solana Devnet. All submissions create immutable Non-Custodial PDAs governed by cryptographic deadline slots.
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <a href="https://explorer.solana.com/address/x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ?cluster=devnet" target="_blank" rel="noreferrer" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5">
+              <span>View Program on Explorer &rarr;</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Devnet Interactive Controls & Activity Feed -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left 2 Cols: On-Chain Actions -->
+        <div class="lg:col-span-2 space-y-4">
+
+          <!-- Action Cards Container -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Direct Web3 Browser Signing (Phantom)</span>
+                  <span id="phantom-status-indicator" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Wallet Disconnected</span>
+                </h3>
+                <p class="text-xs text-slate-400">Sign transactions directly from your Phantom wallet against the deployed Anchor program.</p>
+              </div>
+            </div>
+
+            <!-- Form: Initialize On-Chain Tender with Phantom -->
+            <div class="bg-black/40 border border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-purple-300">Step 1: Initialize On-Chain Tender</span>
+                <span class="text-[11px] mono text-slate-400" id="devnet-derived-pda">PDA will be derived</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input id="input-tender-id" type="text" value="TENDER-DEVNET-402" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Tender ID">
+                <input id="input-sub-window" type="number" value="100" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Submission Window (+Slots)">
+                <input id="input-bond-amount" type="number" value="1000" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Bid Bond (lamports)">
+              </div>
+              <button onclick="web3InitializeTender()" id="btn-web3-init" class="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                <span>Initialize Tender (Sign with Phantom)</span>
+              </button>
+            </div>
+
+            <!-- Form: Submit Sealed Bid with Phantom -->
+            <div class="bg-black/40 border border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-cyan-300">Step 2: Submit Cryptographically Sealed Bid</span>
+                <span class="text-[11px] mono text-slate-400">Non-Custodial Bid PDA</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input id="input-bidder-name" type="text" value="Apex Infrastructure" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" placeholder="Contractor Name">
+                <input id="input-bid-amount" type="number" value="3850000" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-cyan-500" placeholder="Bid Amount ($)">
+              </div>
+              <p class="text-[11px] text-slate-400">
+                Your browser generates a 32-byte secret salt nonce, computes the domain-separated SHA-256 commitment hash, and invokes <span class="mono text-cyan-300">commit_bid</span> on-chain.
+              </p>
+              <button onclick="web3CommitBid()" id="btn-web3-commit" class="w-full py-2.5 px-4 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                <span>Commit Sealed Bid (Sign with Phantom)</span>
+              </button>
+            </div>
+
+            <!-- Alternative: 1-Click Automated Devnet Pipeline -->
+            <div class="border-t border-slate-800 pt-4">
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <div class="text-xs font-bold text-amber-300 flex items-center gap-2">
+                    <span>⚡ 1-Click Automated Devnet Pipeline (Authority Wallet)</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 mono">GFRRqH...wSzU</span>
+                  </div>
+                  <p class="text-xs text-slate-400">No Phantom extension required. Executes real end-to-end on-chain transactions using the funded authority keypair.</p>
+                </div>
+              </div>
+              <button onclick="runAutomatedDevnetPipeline()" id="btn-run-devnet-auto" class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span>Execute Complete Live Devnet Pipeline (1-Click)</span>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Devnet Console Logs -->
+          <div class="bg-black/60 border border-slate-800 rounded-xl p-4 mono text-xs space-y-1.5">
+            <div class="text-slate-500 uppercase tracking-wider font-bold mb-2 flex items-center justify-between">
+              <span>Live Solana Devnet RPC & Transaction Feed</span>
+              <span id="devnet-feed-status" class="text-emerald-400 font-normal">RPC: Connected</span>
+            </div>
+            <div id="devnet-console-logs" class="space-y-1 max-h-48 overflow-y-auto pr-2 text-slate-300">
+              <div class="text-slate-500">Waiting for transaction triggers...</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right 1 Col: Live On-Chain Transactions Cards -->
+        <div class="space-y-4">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+            <span>Verified Devnet State</span>
+            <span class="text-xs text-emerald-400">Solana Explorer</span>
+          </h2>
+
+          <!-- Active On-Chain Records Card -->
+          <div id="devnet-records-card" class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+            <div class="text-[11px] text-slate-400 uppercase tracking-wider font-bold text-slate-300">Latest Devnet Transactions</div>
+            <div id="devnet-tx-list" class="space-y-2">
+              <div class="text-slate-500 text-[11px]">Loading recent Devnet transactions...</div>
+            </div>
+          </div>
+
+          <!-- Smart Contract Specification Card -->
+          <div class="bg-gradient-to-b from-slate-900 to-slate-950 border border-purple-500/30 rounded-xl p-4 shadow-md space-y-2 text-xs">
+            <div class="font-bold text-purple-300 flex items-center gap-2">
+              <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+              <span>On-Chain Security Guarantees</span>
+            </div>
+            <ul class="text-slate-400 space-y-1.5 text-[11px]">
+              <li class="flex items-start gap-1.5">
+                <span class="text-emerald-400 font-bold">&#10003;</span>
+                <span><strong>Two-Phase Multi-Deadline:</strong> Submissions and reveals are strictly segregated by consensus slots.</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-emerald-400 font-bold">&#10003;</span>
+                <span><strong>Bond Escrow:</strong> Bid deposits are locked into non-custodial PDAs and refunded only upon valid reveal.</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-emerald-400 font-bold">&#10003;</span>
+                <span><strong>Mathematical Award Verification:</strong> The smart contract rejects awards that don't match the lowest revealed bid.</span>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: PROTOCOL ENGINE SIMULATOR & ATTACK PLAYGROUND                     -->
+    <!-- ========================================================================= -->
+    <div id="panel-simulator" class="hidden space-y-6">
+
+      <!-- Tender Status Banner -->
+      <section class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm backdrop-blur">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300">Simulator Ref</span>
+              <span id="tender-id-display" class="font-bold text-slate-200 mono">TENDER-2026-HIGHWAY-402</span>
+            </div>
+            <div class="text-xs text-slate-400">Simulator Tender PDA: <span id="tender-pda-display" class="mono text-cyan-400">Click '1. Initialize Tender'</span></div>
+          </div>
+
+          <!-- Lifecycle Steps -->
+          <div class="flex items-center gap-2 text-xs font-medium">
+            <div id="step-active" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-badge"></span> 1. Active (Intake)
+            </div>
+            <span class="text-slate-600">&rarr;</span>
+            <div id="step-locked" class="px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/50 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span> 2. Locked
+            </div>
+            <span class="text-slate-600">&rarr;</span>
+            <div id="step-revealed" class="px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/50 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span> 3. Revealed
+            </div>
+            <span class="text-slate-600">&rarr;</span>
+            <div id="step-awarded" class="px-3 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/50 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span> 4. Awarded
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Main Grid: Bids & Interactive Controls -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left Column: The 3 Bidders (2 cols) -->
+        <div class="lg:col-span-2 space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <span>Tender Submissions (Non-Custodial PDAs)</span>
+              <span id="badge-count" class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">0 Committed</span>
+            </h2>
+            <button id="btn-auto-demo" onclick="runAutomatedDemo()" class="px-3 py-1 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white rounded-lg font-semibold text-xs shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
+              Run 3-Min Demo
+            </button>
+          </div>
+
+          <!-- Bidder Cards Container -->
+          <div class="space-y-3" id="bidders-container">
+            <div id="empty-state" class="p-8 text-center border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs">
+              No bids committed yet. Click <span class="text-cyan-400 font-semibold">'1. Initialize Tender'</span> then <span class="text-cyan-400 font-semibold">'2. Commit 3 Bids'</span> to watch Python execute the real cryptography!
+            </div>
+          </div>
+
+          <!-- Defense Activity Console Log -->
+          <div class="bg-black/60 border border-slate-800 rounded-xl p-4 mono text-xs space-y-1.5">
+            <div class="text-slate-500 uppercase tracking-wider font-bold mb-2 flex items-center justify-between">
+              <span>Live Simulator Consensus & Defense Activity</span>
+              <span class="text-emerald-400 font-normal">Python Engine: Active</span>
+            </div>
+            <div id="console-logs" class="space-y-1 max-h-48 overflow-y-auto pr-2 text-slate-300">
+              <div class="text-slate-500">Waiting for actions... Click buttons on the right to trigger instructions.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Interactive Attack Playground (1 col) -->
+        <div class="space-y-4">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Interactive Control Playground</h2>
+
+          <!-- Action Panel -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="text-xs text-slate-400">Execute Anchor instructions in Python engine:</div>
+
+            <!-- Step 1, 2, 3 Setup -->
+            <div class="space-y-2">
+              <button onclick="apiInitTender()" id="btn-init" class="w-full py-2.5 px-3 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+                <span>1.</span> Initialize Tender (Deadline Slot 1050)
+              </button>
+              <button onclick="apiCommitThreeBids()" id="btn-commit" class="w-full py-2.5 px-3 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+                <span>2.</span> Commit 3 Encrypted Bids (Direct PDAs)
+              </button>
+              <button onclick="apiLockTender()" id="btn-lock" class="w-full py-2.5 px-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+                <span>3.</span> Advance Slot to 1060 & Lock Tender
+              </button>
+            </div>
+
+            <!-- Live Attack Simulations -->
+            <div class="border-t border-slate-800 pt-3">
+              <div class="text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">Simulate Database Attacks</div>
+              
+              <button onclick="apiAttackLateBid()" id="btn-attack-1" class="w-full py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 mb-2 cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Attack 1: Inject Late Bidder D
+              </button>
+
+              <button onclick="apiAttackTamperPrice()" id="btn-attack-2" class="w-full py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Attack 2: Tamper ACME Price
+              </button>
+            </div>
+
+            <!-- Finalization -->
+            <div class="border-t border-slate-800 pt-3">
+              <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Protocol Finalization</div>
+              <button onclick="apiRevealBids()" id="btn-reveal" class="w-full py-2 px-3 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 mb-2 cursor-pointer">
+                Reveal Legitimate Bids
+              </button>
+              <button onclick="apiRecordAward()" id="btn-award" class="w-full py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+                Record Tender Award (BuildCo)
+              </button>
+            </div>
+          </div>
+
+          <!-- Air-Gapped Offline Verifier Card -->
+          <div class="bg-gradient-to-b from-slate-900 to-slate-950 border border-cyan-500/30 rounded-xl p-4 shadow-lg shadow-cyan-500/5 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="text-xs font-bold text-cyan-300 flex items-center gap-2">
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                Air-Gapped Offline Verifier
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 mono">Zero Backend</span>
+            </div>
+            <p class="text-xs text-slate-400">Verifies standalone <span class="mono text-slate-200">proof_bundle.json</span> against consensus state without touching the BidTrace server:</p>
+            <button onclick="apiVerifyOffline()" class="w-full py-2.5 px-3 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+              Run Air-Gapped Audit Check
+            </button>
+            <div id="verifier-output" class="hidden text-xs mono p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 space-y-1">
+              <div class="font-bold text-emerald-400 flex items-center gap-1.5">
+                <span>&#10003;</span> AUDIT VERIFIED: Tamper-Free
+              </div>
+              <div id="verif-line-slot" class="text-[11px] text-emerald-200/80">Slot Committed: 1000 &le; 1050 [PASS]</div>
+              <div id="verif-line-hash" class="text-[11px] text-emerald-200/80">Preimage Hash Match: VALID [PASS]</div>
+              <div id="verif-line-crypto" class="text-[11px] text-emerald-200/80">AES-256-GCM Tag: OK [PASS]</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
   </div>
 
   <script>
+    // Global State
+    let activeTab = "devnet";
+    let devnetSlot = 0;
+    let connectedWalletPublicKey = null;
+
+    // Tab Switching
+    function switchTab(tab) {
+      activeTab = tab;
+      const tabDev = document.getElementById("tab-devnet");
+      const tabSim = document.getElementById("tab-simulator");
+      const panelDev = document.getElementById("panel-devnet");
+      const panelSim = document.getElementById("panel-simulator");
+
+      if (tab === "devnet") {
+        tabDev.className = "px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border border-purple-500/40 cursor-pointer";
+        tabSim.className = "px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent transition flex items-center gap-2 cursor-pointer";
+        panelDev.classList.remove("hidden");
+        panelSim.classList.add("hidden");
+      } else {
+        tabSim.className = "px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/40 cursor-pointer";
+        tabDev.className = "px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 border border-transparent transition flex items-center gap-2 cursor-pointer";
+        panelSim.classList.remove("hidden");
+        panelDev.classList.add("hidden");
+      }
+    }
+
+    // Logger
+    function logDevnet(msg, type = "normal") {
+      const logs = document.getElementById("devnet-console-logs");
+      const d = document.createElement("div");
+      if (type === "error") d.className = "text-rose-400 font-semibold";
+      else if (type === "success") d.className = "text-emerald-400 font-semibold";
+      else if (type === "warning") d.className = "text-amber-400 font-semibold";
+      else d.className = "text-slate-300";
+      d.innerHTML = `[${new Date().toISOString().slice(14, 19)}] ` + msg;
+      logs.prepend(d);
+    }
+
     function log(msg, type = "normal") {
       const logs = document.getElementById("console-logs");
+      if (!logs) return;
       const d = document.createElement("div");
       if (type === "error") d.className = "text-rose-400 font-semibold";
       else if (type === "success") d.className = "text-emerald-400 font-semibold";
@@ -199,6 +449,254 @@
       logs.prepend(d);
     }
 
+    // Phantom Wallet Adapter Integration
+    async function connectPhantomWallet() {
+      try {
+        logDevnet("Connecting Phantom wallet...", "normal");
+        const pubkey = await window.BidTraceWeb3.walletManager.connect();
+        connectedWalletPublicKey = pubkey;
+        updateWalletUI(true, pubkey.toBase58());
+        logDevnet(`Phantom Connected: ${pubkey.toBase58()}`, "success");
+        await refreshWalletBalance();
+      } catch (err) {
+        logDevnet(`Wallet Error: ${err.message}`, "error");
+        alert(err.message);
+      }
+    }
+
+    async function disconnectPhantomWallet() {
+      try {
+        await window.BidTraceWeb3.walletManager.disconnect();
+        connectedWalletPublicKey = null;
+        updateWalletUI(false, null);
+        logDevnet("Phantom wallet disconnected", "warning");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function updateWalletUI(isConnected, pubkeyStr) {
+      const btnConnect = document.getElementById("btn-connect-phantom");
+      const pill = document.getElementById("wallet-connected-pill");
+      const ind = document.getElementById("phantom-status-indicator");
+
+      if (isConnected && pubkeyStr) {
+        btnConnect.classList.add("hidden");
+        pill.classList.remove("hidden");
+        document.getElementById("wallet-pubkey-display").innerText = `${pubkeyStr.slice(0, 4)}...${pubkeyStr.slice(-4)}`;
+        ind.innerText = `Connected: ${pubkeyStr.slice(0, 4)}...${pubkeyStr.slice(-4)}`;
+        ind.className = "text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono";
+      } else {
+        btnConnect.classList.remove("hidden");
+        pill.classList.add("hidden");
+        ind.innerText = "Wallet Disconnected";
+        ind.className = "text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400";
+      }
+    }
+
+    async function refreshWalletBalance() {
+      if (!connectedWalletPublicKey) return;
+      try {
+        const bal = await window.BidTraceWeb3.walletManager.getBalance();
+        document.getElementById("wallet-balance-display").innerText = `${bal.toFixed(3)} SOL`;
+      } catch (err) {
+        console.error("Balance fetch error:", err);
+      }
+    }
+
+    async function requestDevnetAirdrop() {
+      if (!connectedWalletPublicKey) return;
+      try {
+        logDevnet(`Requesting 1 SOL airdrop for ${connectedWalletPublicKey.toBase58()}...`, "warning");
+        const sig = await window.BidTraceWeb3.devnetConnection.requestAirdrop(
+          connectedWalletPublicKey,
+          solanaWeb3.LAMPORTS_PER_SOL
+        );
+        await window.BidTraceWeb3.devnetConnection.confirmTransaction(sig, "confirmed");
+        logDevnet("Airdrop confirmed on Devnet!", "success");
+        await refreshWalletBalance();
+      } catch (err) {
+        logDevnet(`Airdrop request failed: ${err.message}`, "error");
+      }
+    }
+
+    // Devnet Live Slot Poller & Status Loader
+    async function pollDevnetStatus() {
+      try {
+        const res = await fetch("/api/devnet/status");
+        const data = await res.json();
+        if (data.devnet_slot) {
+          devnetSlot = data.devnet_slot;
+          document.getElementById("devnet-slot-display").innerText = devnetSlot.toLocaleString();
+        }
+        if (data.last_run) {
+          renderLastDevnetRun(data.last_run);
+        }
+      } catch (err) {
+        console.warn("Devnet poll warning:", err);
+      }
+    }
+
+    function renderLastDevnetRun(r) {
+      const container = document.getElementById("devnet-tx-list");
+      container.innerHTML = `
+        <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200">Tender Initialized: ${r.tenderId}</span>
+            <span class="text-[10px] text-emerald-400 font-semibold">Finalized</span>
+          </div>
+          <div class="mono text-[10px] text-slate-400 truncate">PDA: ${r.tenderPda}</div>
+          <a href="https://explorer.solana.com/tx/${r.initTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-purple-400 hover:text-purple-300 underline flex items-center gap-1">
+            <span>Tx: ${r.initTxSignature.slice(0, 16)}...</span>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+          </a>
+        </div>
+        <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200">Sealed Bid Committed</span>
+            <span class="text-[10px] text-cyan-400 font-semibold">Escrowed</span>
+          </div>
+          <div class="mono text-[10px] text-slate-400 truncate">Bid PDA: ${r.bidPda}</div>
+          <div class="mono text-[10px] text-slate-400 truncate">Hash: ${r.commitmentHash.slice(0, 16)}...</div>
+          <a href="https://explorer.solana.com/tx/${r.commitTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1">
+            <span>Tx: ${r.commitTxSignature.slice(0, 16)}...</span>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+          </a>
+        </div>
+      `;
+    }
+
+    // Direct Web3 Actions with Phantom
+    let activeWeb3TenderPda = null;
+
+    async function web3InitializeTender() {
+      if (!connectedWalletPublicKey) {
+        alert("Please connect your Phantom wallet first (click 'Connect Phantom' in the top right).");
+        return;
+      }
+
+      const tenderId = document.getElementById("input-tender-id").value.trim() || `TENDER-${Math.floor(Date.now() / 1000)}`;
+      const subWindow = parseInt(document.getElementById("input-sub-window").value) || 100;
+      const bond = parseInt(document.getElementById("input-bond-amount").value) || 1000;
+
+      logDevnet(`Preparing initialize_tender transaction for '${tenderId}'...`, "normal");
+
+      try {
+        const currentSlot = await window.BidTraceWeb3.devnetConnection.getSlot();
+        const subSlot = currentSlot + subWindow;
+        const revSlot = subSlot + 150;
+
+        const { instruction, tenderPda } = window.BidTraceWeb3.createInitializeTenderInstruction({
+          authority: connectedWalletPublicKey,
+          tenderId,
+          submissionDeadlineSlot: subSlot,
+          revealDeadlineSlot: revSlot,
+          bidDeposit: bond
+        });
+
+        activeWeb3TenderPda = tenderPda;
+        document.getElementById("devnet-derived-pda").innerText = `PDA: ${tenderPda.toBase58().slice(0, 12)}...`;
+
+        const tx = new solanaWeb3.Transaction().add(instruction);
+        logDevnet("Prompting Phantom for transaction signature...", "warning");
+
+        const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
+        logDevnet(`>>> SUCCESS! Tender initialized on Solana Devnet!`, "success");
+        logDevnet(`Tx Signature: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank" class="text-purple-400 underline">${sig.slice(0, 20)}...</a>`, "success");
+        logDevnet(`Tender PDA: ${tenderPda.toBase58()}`, "normal");
+
+        await pollDevnetStatus();
+        await refreshWalletBalance();
+      } catch (err) {
+        logDevnet(`Transaction Failed: ${err.message}`, "error");
+      }
+    }
+
+    async function web3CommitBid() {
+      if (!connectedWalletPublicKey) {
+        alert("Please connect your Phantom wallet first.");
+        return;
+      }
+      if (!activeWeb3TenderPda) {
+        // Derive default from input tender id
+        const tenderId = document.getElementById("input-tender-id").value.trim() || "TENDER-DEVNET-402";
+        const [derived] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
+        activeWeb3TenderPda = derived;
+      }
+
+      const contractorName = document.getElementById("input-bidder-name").value.trim();
+      const amount = parseInt(document.getElementById("input-bid-amount").value) || 3850000;
+
+      logDevnet(`Generating cryptographic commitment for '${contractorName}' ($${amount.toLocaleString()})...`, "normal");
+
+      try {
+        const salt = window.BidTraceWeb3.getRandomBytes(32);
+        const cipherHash = window.BidTraceWeb3.getRandomBytes(32);
+
+        const commHash = await window.BidTraceWeb3.computeBidCommitmentHash(
+          activeWeb3TenderPda,
+          connectedWalletPublicKey,
+          salt,
+          cipherHash,
+          amount
+        );
+
+        logDevnet(`SHA-256 Domain-Separated Hash: ${window.BidTraceWeb3.bytesToHex(commHash).slice(0, 24)}...`, "normal");
+
+        const { instruction, bidCommitmentPda } = window.BidTraceWeb3.createCommitBidInstruction({
+          tenderPda: activeWeb3TenderPda,
+          bidder: connectedWalletPublicKey,
+          feePayer: connectedWalletPublicKey,
+          commitmentHash: commHash
+        });
+
+        const tx = new solanaWeb3.Transaction().add(instruction);
+        logDevnet("Prompting Phantom to sign sealed bid submission...", "warning");
+
+        const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
+        logDevnet(`>>> SUCCESS! Sealed Bid committed on Solana Devnet!`, "success");
+        logDevnet(`Tx Signature: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank" class="text-cyan-400 underline">${sig.slice(0, 20)}...</a>`, "success");
+        logDevnet(`Bid PDA: ${bidCommitmentPda.toBase58()}`, "normal");
+
+        await pollDevnetStatus();
+        await refreshWalletBalance();
+      } catch (err) {
+        logDevnet(`Commit Failed: ${err.message}`, "error");
+      }
+    }
+
+    // Automated Devnet Pipeline (Authority Key)
+    async function runAutomatedDevnetPipeline() {
+      const btn = document.getElementById("btn-run-devnet-auto");
+      btn.disabled = true;
+      btn.innerHTML = `<span class="animate-spin mr-2">&#9696;</span> Broadcasting on-chain transactions to Devnet...`;
+
+      logDevnet(">>> Running Automated On-Chain Devnet Pipeline via Deployer Key...", "warning");
+
+      try {
+        const res = await fetch("/api/devnet/run-pipeline", { method: "POST" });
+        const json = await res.json();
+        if (json.status === "ok") {
+          const d = json.data;
+          logDevnet(`[DEVNET CONFIRMED] Tender Initialized: PDA ${d.tenderPda}`, "success");
+          logDevnet(`Init Tx: <a href="https://explorer.solana.com/tx/${d.initTxSignature}?cluster=devnet" target="_blank" class="text-purple-400 underline">${d.initTxSignature}</a>`, "success");
+          logDevnet(`[DEVNET CONFIRMED] Contractor Bid Committed: PDA ${d.bidPda}`, "success");
+          logDevnet(`Commit Tx: <a href="https://explorer.solana.com/tx/${d.commitTxSignature}?cluster=devnet" target="_blank" class="text-cyan-400 underline">${d.commitTxSignature}</a>`, "success");
+          renderLastDevnetRun(d);
+        } else {
+          logDevnet(`Pipeline Error: ${json.message}`, "error");
+        }
+      } catch (err) {
+        logDevnet(`Pipeline Error: ${err.message}`, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Execute Complete Live Devnet Pipeline (1-Click)</span>`;
+      }
+    }
+
+    // =========================================================================
+    // PROTOCOL SIMULATOR (PYTHON ENGINE) FUNCTIONS
+    // =========================================================================
     async function callApi(endpoint, data = {}) {
       try {
         const res = await fetch(endpoint, {
@@ -222,10 +720,8 @@
       log("Calling Python backend: POST /api/init-tender...", "normal");
       const res = await callApi("/api/init-tender", { tender_id: "TENDER-2026-HIGHWAY-402", deadline_slots: 50 });
       if (res && res.status === "ok") {
-        document.getElementById("slot-counter").innerText = res.tender.initialized_at_slot;
         document.getElementById("tender-pda-display").innerText = res.tender.pda;
         log(`Tender created on Python reference ledger! PDA: ${res.tender.pda}`, "success");
-        log(`Authority: ${res.authority_pubkey.slice(0, 16)}... | Submissions Close: Slot ${res.tender.submission_deadline_slot} | Reveals Close: Slot ${res.tender.reveal_deadline_slot}`, "normal");
       }
     }
 
@@ -282,7 +778,6 @@
       log("Calling Python backend: POST /api/lock-tender (Advancing slot past deadline)...", "warning");
       const res = await callApi("/api/lock-tender");
       if (res && res.status === "ok") {
-        document.getElementById("slot-counter").innerText = res.current_slot;
         document.getElementById("step-active").className = "px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5";
         document.getElementById("step-locked").className = "px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5";
         log(`Tender locked in Python state machine at Slot ${res.current_slot}! Submissions are permanently frozen.`, "success");
@@ -389,6 +884,22 @@
       await apiVerifyOffline();
       log("--- 3-MINUTE DEMO COMPLETED WITH REAL PYTHON CRYPTOGRAPHY ---", "success");
     }
+
+    // Initialize on page load
+    window.addEventListener("DOMContentLoaded", () => {
+      pollDevnetStatus();
+      setInterval(pollDevnetStatus, 4000);
+
+      // Auto-detect Phantom if already authorized
+      if (window.BidTraceWeb3 && window.BidTraceWeb3.walletManager.isPhantomInstalled()) {
+        const prov = window.BidTraceWeb3.walletManager.getWalletProvider();
+        if (prov && prov.publicKey) {
+          connectedWalletPublicKey = prov.publicKey;
+          updateWalletUI(true, prov.publicKey.toBase58());
+          refreshWalletBalance();
+        }
+      }
+    });
   </script>
 </body>
 </html>
