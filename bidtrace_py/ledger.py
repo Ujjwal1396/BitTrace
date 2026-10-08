@@ -56,9 +56,34 @@ class BidTraceLedger:
         raw = f"bid:{tender_pda}:{bidder_pubkey}".encode('utf-8')
         return hashlib.sha256(raw).hexdigest()[:44]
 
-    def initialize_tender(self, authority_pubkey: str, tender_id: str, deadline_slot: int, authorized_bidders_root: str = "00"*32) -> dict:
-        if deadline_slot <= self.current_slot:
-            raise ValueError(f"InvalidDeadlineSlot: deadline_slot ({deadline_slot}) must be > current_slot ({self.current_slot})")
+    def initialize_tender(
+        self,
+        authority_pubkey: str,
+        tender_id: str,
+        submission_deadline_slot: Optional[int] = None,
+        reveal_deadline_slot: Optional[int] = None,
+        bid_deposit: int = 0,
+        authorized_bidders_root: str = "00"*32,
+        deadline_slot: Optional[int] = None
+    ) -> dict:
+        if submission_deadline_slot is None:
+            if deadline_slot is not None:
+                submission_deadline_slot = deadline_slot
+            else:
+                raise ValueError("submission_deadline_slot is required")
+        
+        if reveal_deadline_slot is None:
+            reveal_deadline_slot = submission_deadline_slot + 50
+
+        if submission_deadline_slot <= self.current_slot:
+            raise ValueError(
+                f"InvalidSubmissionDeadline: submission_deadline_slot ({submission_deadline_slot}) must be > current_slot ({self.current_slot})"
+            )
+        
+        if reveal_deadline_slot <= submission_deadline_slot:
+            raise ValueError(
+                f"InvalidRevealDeadline: reveal_deadline_slot ({reveal_deadline_slot}) must be > submission_deadline_slot ({submission_deadline_slot})"
+            )
         
         tender_pda = self.derive_tender_pda(authority_pubkey, tender_id)
         if tender_pda in self.tenders:
@@ -68,10 +93,15 @@ class BidTraceLedger:
             "pda": tender_pda,
             "authority": authority_pubkey,
             "tender_id": tender_id,
-            "deadline_slot": deadline_slot,
+            "submission_deadline_slot": submission_deadline_slot,
+            "reveal_deadline_slot": reveal_deadline_slot,
+            "deadline_slot": submission_deadline_slot, # backwards compatibility
+            "bid_deposit": bid_deposit,
             "authorized_bidders_root": authorized_bidders_root,
             "total_committed": 0,
             "total_revealed": 0,
+            "lowest_revealed_amount": None,
+            "lowest_bidder": None,
             "status": TenderStatus.ACTIVE,
             "winning_bidder": None,
             "initialized_at_slot": self.current_slot
@@ -88,9 +118,9 @@ class BidTraceLedger:
         if tender["status"] != TenderStatus.ACTIVE:
             raise ValueError("TenderAlreadyLocked: Submissions are closed")
 
-        if self.current_slot > tender["deadline_slot"]:
+        if self.current_slot > tender["submission_deadline_slot"]:
             raise ValueError(
-                f"DeadlineExceeded: Current slot {self.current_slot} > deadline slot {tender['deadline_slot']}"
+                f"SubmissionDeadlineExceeded: Current slot {self.current_slot} > submission deadline slot {tender['submission_deadline_slot']}"
             )
 
         bid_pda = self.derive_bid_pda(tender_pda, bidder_pubkey)
@@ -103,6 +133,7 @@ class BidTraceLedger:
             "bidder": bidder_pubkey,
             "commitment_hash": commitment_hash,
             "committed_at_slot": self.current_slot,
+            "escrowed_deposit": tender.get("bid_deposit", 0),
             "is_revealed": False,
             "revealed_at_slot": 0,
             "revealed_amount": 0
@@ -121,9 +152,9 @@ class BidTraceLedger:
         if tender["status"] != TenderStatus.ACTIVE:
             raise ValueError("TenderAlreadyLocked")
 
-        if self.current_slot <= tender["deadline_slot"]:
+        if self.current_slot <= tender["submission_deadline_slot"]:
             raise ValueError(
-                f"DeadlineNotReached: Current slot {self.current_slot} <= deadline slot {tender['deadline_slot']}"
+                f"SubmissionDeadlineNotReached: Current slot {self.current_slot} <= submission deadline slot {tender['submission_deadline_slot']}"
             )
 
         tender["status"] = TenderStatus.LOCKED
@@ -137,6 +168,11 @@ class BidTraceLedger:
 
         if tender["status"] != TenderStatus.LOCKED:
             raise ValueError("TenderNotLocked: Tender must be locked before reveals can take place")
+
+        if self.current_slot > tender["reveal_deadline_slot"]:
+            raise ValueError(
+                f"RevealWindowExpired: Current slot {self.current_slot} > reveal deadline slot {tender['reveal_deadline_slot']}"
+            )
 
         bid_pda = self.derive_bid_pda(tender_pda, bidder_pubkey)
         if bid_pda not in self.commitments:
@@ -163,7 +199,14 @@ class BidTraceLedger:
         bid["is_revealed"] = True
         bid["revealed_at_slot"] = self.current_slot
         bid["revealed_amount"] = bid_amount
+        bid["escrowed_deposit"] = 0 # Refund deposit on valid reveal
+
         tender["total_revealed"] += 1
+
+        if tender["lowest_bidder"] is None or bid_amount < tender["lowest_revealed_amount"]:
+            tender["lowest_revealed_amount"] = bid_amount
+            tender["lowest_bidder"] = bidder_pubkey
+
         self.save_state()
         return bid
 
@@ -178,6 +221,14 @@ class BidTraceLedger:
         if tender["status"] != TenderStatus.LOCKED:
             raise ValueError("TenderNotLocked: Must be in Locked state to award")
 
+        # Anti-Lockout Gate:
+        # Award can ONLY be recorded if the reveal window has expired OR all committed bids have revealed
+        if not (self.current_slot > tender["reveal_deadline_slot"] or tender["total_revealed"] == tender["total_committed"]):
+            raise ValueError(
+                f"RevealWindowActive: Reveal window is still open (slot {self.current_slot} <= {tender['reveal_deadline_slot']}) "
+                f"and unrevealed bids remain ({tender['total_revealed']}/{tender['total_committed']}). Early award is prohibited."
+            )
+
         winner_bid_pda = self.derive_bid_pda(tender_pda, winning_bidder_pubkey)
         if winner_bid_pda not in self.commitments:
             raise ValueError("WinningBidNotFound")
@@ -185,6 +236,11 @@ class BidTraceLedger:
         winning_bid = self.commitments[winner_bid_pda]
         if not winning_bid["is_revealed"]:
             raise ValueError("WinnerNotRevealed: Cannot award to an unrevealed bid")
+
+        if tender["lowest_bidder"] and winning_bidder_pubkey != tender["lowest_bidder"]:
+            raise ValueError(
+                f"WinnerNotLowestBid: Selected winner ({winning_bidder_pubkey}) is not the lowest compliant revealed bidder ({tender['lowest_bidder']})"
+            )
 
         tender["winning_bidder"] = winning_bidder_pubkey
         tender["status"] = TenderStatus.AWARDED

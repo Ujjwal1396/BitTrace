@@ -1,92 +1,106 @@
-# BidTrace: Architectural Specification & Council Evaluation Dossier
+# BidTrace: Cryptographic Protocol Specification & Architectural Evaluation Dossier
 
-**Project Name:** BidTrace  
-**Subtitle:** Incorruptible Cryptographic Deadline-Lock Protocol for Competitive Procurement  
+**Protocol Name:** BidTrace  
+**Specification Version:** 1.1.0  
 **Repository:** [https://github.com/Ujjwal1396/BitTrace](https://github.com/Ujjwal1396/BitTrace)  
-**Target Platform:** Solana / Anchor Framework (Devnet & Mainnet-ready)  
-**Evaluation Standard:** Prepared for Adversarial Review by Cryptographic & Systems Evaluation Councils  
+**Target Platform:** Solana / Anchor Framework (Anchor 0.30+)  
+**Reference Implementation:** Python 3.10+ Cryptographic Engine & Deterministic State Machine  
 
 ---
 
 ## 1. Executive Summary
 
-Every year, trillions of dollars are transacted through public and enterprise procurement. Across municipal tenders, infrastructure concessions, and multilateral loans (World Bank, ADB), the most dangerous vector for corrupt award manipulation occurs during a narrow operational window: **the interval between the bid submission deadline and the public bid opening.**
+Every year, trillions of dollars are transacted through public works, infrastructure concessions, and multilateral loans (World Bank, ADB). Empirical analysis of public procurement fraud indicates that the most critical vulnerability window is operational: **the interval between the bid submission deadline and the public bid evaluation.**
 
-During this period, a procurement administrator or database operator with root system privileges can inspect legitimate competing submissions, learn the lowest compliant price, and secretly insert a late favored bid or alter an existing proposal prior to the opening ceremony. When honest bidders lose, the operator simply claims: *"That is what was in the database."*
+In centralized e-procurement architectures (e-GP portals, enterprise ERP databases), bids are collected and stored on database servers managed by system administrators. An insider with administrative credentials or a compromised database account can observe competing bids after submissions close, discover the lowest compliant price, and backdate a favored submission or alter an existing record prior to the official opening. When challenged by honest bidders, the operator appeals to the authoritative record of their database: *"That is what our database recorded."*
 
-**BidTrace** solves this fatal vulnerability without attempting to put confidential commercial proposals on a public ledger or naively claiming to eliminate all human corruption. Instead, it proves one mathematically irrefutable primitive: **bid-set completeness at the deadline.**
-
-Using a sealed-bid commitment scheme anchored to Solana's consensus clock, bidders write 32-byte domain-separated cryptographic commitments directly to non-custodial Program Derived Addresses (PDAs). The moment Solana's consensus slot passes the tender deadline, the submission window is permanently sealed. Any post-deadline injection, modification, or substitution causes cryptographic verification to mathematically fail—provable by any auditor using an air-gapped script with the government website completely shut down.
+**BidTrace** addresses this integrity breakdown through an adversarial, tamper-evident commit-reveal architecture anchored to Solana's consensus clock. Bidders write 32-byte domain-separated cryptographic commitments directly to non-custodial Program Derived Addresses (PDAs). Once consensus passes the submission deadline slot, the intake window freezes immutably. Furthermore, BidTrace enforces an explicit reveal window with anti-lockout gating, lowest-bidder verification, and refundable bid bond deposits to eliminate premature award collusion and free-option defaults.
 
 ---
 
-## 2. The Core Problem: The Post-Deadline Attack Window
+## 2. Core Problem & Explicit Threat Boundaries
 
-### 2.1 The Real-World Vulnerability
-In standard procurement procedures:
-1. **Tender Closes:** e.g., Friday at 12:00:00 PM.
-2. **Evaluation/Opening Commences:** e.g., Friday at 2:00:00 PM (or days later).
-3. **The Blind Spot:** In centralized e-procurement architectures (e-GP portals, enterprise ERPs), stored records rely on database integrity controlled by system administrators. 
-   * An administrator with database access can view all bids at 12:05 PM.
-   * If Contractor A bid \$4,200,000 and Contractor B bid \$4,100,000, the operator can collude with Contractor C, backdate a submission timestamp to 11:58 AM, and insert a bid for \$4,050,000.
-   * Because the audit log is stored in the same administrative domain, the database log can be sanitized retroactively.
+### 2.1 The Post-Deadline Exploitation Window
+Traditional electronic procurement relies on trusted infrastructure providers:
+1. **Submission Window:** Bids are uploaded before a calendar deadline (e.g., Friday at 12:00:00 UTC).
+2. **Evaluation Window:** Bids remain stored on a database until official decryption and evaluation (e.g., hours or days later).
+3. **The Attack Vector:** 
+   * An administrator with root database access inspects submitted values at 12:05 UTC.
+   * If Bidder A bid \$4,200,000 and Bidder B bid \$3,950,000, a colluding operator can construct a synthetic submission for Bidder C at \$3,900,000, backdate the database timestamp to 11:55 UTC, and update audit tables retroactively.
 
-### 2.2 Explicit Non-Goals (What BidTrace Does NOT Claim)
-BidTrace maintains high academic and technical rigor by defining clear threat boundaries. BidTrace does **not** claim to:
-* Detect physical bribery, off-chain intimidation, or backroom collusion between contractors.
-* Determine whether the winning contractor does high-quality construction in the physical world.
-* Replace procurement legal frameworks or municipal courts.
-* Put sensitive, proprietary corporate bids or intellectual property on a public ledger.
+### 2.2 Explicit Threat Boundaries & Non-Goals
+To maintain scientific and systems rigor, BidTrace explicitly bounds its security guarantees:
 
-**The Narrow, Defensible Claim:**  
-BidTrace proves **only** that the bids opened and evaluated were *identically and completely* the exact set of bids frozen prior to the consensus deadline slot, and that no bid was inserted, swapped, or altered after that boundary.
+* **What BidTrace DOES Guarantee:**
+  1. **Bid-Set Completeness at Deadline:** Proof that any bid considered in evaluation was committed prior to `submission_deadline_slot`.
+  2. **Non-Custodial Intake (Censorship Resistance):** Bidders commit directly to Solana PDAs; a procurement operator cannot drop, omit, or censor a valid commitment.
+  3. **Cryptographic Binding:** A bidder cannot alter their revealed pricing or technical specifications without causing a SHA-256 preimage verification failure.
+  4. **Anti-Lockout Gating:** An authority and a colluding bidder cannot prematurely record an award before honest bidders have had the opportunity to reveal within the active reveal window.
+  5. **Air-Gapped Auditability:** An independent auditor holding a standalone `proof_bundle.json` can verify bid validity directly against raw on-chain state without communicating with the procurement server.
+
+* **What BidTrace Does NOT Claim (Explicit Non-Goals):**
+  * **Off-Chain Physical Corruption:** BidTrace cannot prevent physical bribery, extortion, or off-chain cartel arrangements formed prior to submission.
+  * **Contractor Competence:** BidTrace does not verify the physical engineering quality of concrete, steel, or construction execution.
+  * **Pre-Qualification Administrative Decisions:** The Merkle whitelist root (`authorized_bidders_root`) enforces that only approved public keys can commit bids; it does not evaluate whether the authority's initial paperwork review of qualifying contractors was impartial.
+  * **Public Ledger Confidentiality Leakage:** Sensitive corporate commercial strategies and trade secrets are never written in plaintext to the public ledger. Plaintext stays strictly off-chain until reveal.
 
 ---
 
 ## 3. Threat Model & Security Properties
 
-### 3.1 Adversary Definition
-* **The Adversary:** A malicious, compromised, or coerced procurement system administrator with full read/write/delete access to the off-chain database and application servers.
-* **Adversary Capabilities:** Can alter database rows, forge application-level timestamps, delete competitors' records, insert late rows, and selectively shut down the public web portal.
-* **Adversary Limits:** Cannot break AES-256-GCM, cannot invert SHA-256 preimages, and cannot forge digital signatures on the decentralized Solana validator network.
+### 3.1 Adversarial Model
+* **The Adversary:** A colluding, coerced, or compromised procurement authority holding administrative database and server access.
+* **Adversary Capabilities:** Can modify off-chain database rows, forge application-level timestamps, delete competitors' off-chain records, and shut down public web servers.
+* **Adversary Limits:** Cannot invert SHA-256 preimages, cannot forge Ed25519 digital signatures, cannot forge AES-256-GCM authentication tags, and cannot rewrite consensus history confirmed by Solana validators.
 
 ### 3.2 Core Security Invariants
-1. **Deadline Immutability:** No transaction committing a bid can execute after `Clock::get()?.slot > deadline_slot`.
-2. **Pre-Deadline Confidentiality (Sealed-Bid Secrecy):** No actor (including the tender authority) can determine the bid price or document contents prior to the official reveal phase.
-3. **Non-Custodial Inclusion (Censorship Resistance):** The operator cannot drop, censor, or selectively exclude an authorized bidder's commitment.
-4. **Preimage Binding:** A bidder cannot alter their revealed price or document without causing a 64-character hash mismatch against their on-chain PDA.
-5. **Server-Independent Verifiability:** An auditor holding a portable `proof_bundle.json` can verify authenticity directly against raw Solana ledger data with zero reliance on the BidTrace API.
+1. **Submission Deadline Invariant:** No commitment transaction is valid if confirmed at `Clock::get()?.slot > submission_deadline_slot`.
+2. **Pre-Deadline Confidentiality:** Bid prices and specifications are protected under AES-256-GCM with locally held 256-bit symmetric keys.
+3. **Domain Separation:** Every commitment preimage explicitly binds `"BIDTRACE_V1"`, `tender_pda`, `bidder_pubkey`, `salt`, `ciphertext_hash`, and `bid_amount`. Commitments cannot be replayed across different tenders or bidders.
+4. **Anti-Lockout Invariant:** An award cannot be recorded while `clock.slot <= reveal_deadline_slot` unless 100% of committed bids have revealed (`total_revealed == total_committed`).
+5. **Lowest-Bidder Invariant:** The awarded winner must match the lowest compliant revealed bid recorded on-chain.
+6. **Economic Commitment (Bid Bond):** A refundable deposit (`bid_deposit`) is escrowed during `commit_bid` and refunded only upon valid reveal, discouraging unrevealed free options.
 
 ---
 
-## 4. Key Architectural Innovations: Resolving Critical Flaws
+## 4. Architectural Solutions to Critical Procurement Flaws
 
-Early iterations of blockchain procurement systems suffered from two fatal flaws that caused systems judges to dismiss them. BidTrace resolves both:
+### 4.1 Flaw A: The "Selective Exclusion" Censorship Trap
+* **Naive Architecture:** An off-chain server collects all encrypted bids, computes an aggregate Merkle tree root, and posts that single root on-chain. If the operator wishes to exclude Contractor C, they omit Contractor C from the Merkle tree and claim: *"We suffered network congestion and never received your packet."*
+* **BidTrace Resolution — Direct PDA Intake:**
+  Bidders do not submit commitments to an intermediary server. Bidders sign and broadcast a 32-byte commitment directly to a deterministic Program Derived Address (PDA):
+  $$\text{PDA} = \text{findProgramAddress}([\text{"bid"},\, \text{tender\_pda},\, \text{bidder\_pubkey}],\, \text{program\_id})$$
+  Because validators process transactions directly, the procurement operator possesses zero gatekeeping or censorship capability.
 
-### Flaw A: The "Selective Exclusion" Censorship Trap
-* **The Flaw in Naive Designs:** In typical designs, an off-chain server collects all bids, builds a Merkle tree, and posts the Merkle root to the blockchain. If the operator dislikes Bidder C, they simply omit Bidder C from the Merkle tree before creating the root. When Bidder C complains, the operator claims: *"We had a network drop; we never received your bid."*
-* **The BidTrace Resolution:** **Direct On-Chain PDA Intake.**
-  * Bidders do not submit commitments to an operator's server. Bidders send their 32-byte commitment transaction directly to Solana.
-  * The commitment is stored in a Program Derived Address (PDA) derived from:
-    $$\text{PDA} = \text{findProgramAddress}([\text{"bid"},\, \text{tender\_pda},\, \text{bidder\_pubkey}],\, \text{program\_id})$$
-  * Because Solana validators process the transaction, the procurement operator has **zero gatekeeping or censorship power**. If the transaction lands before `deadline_slot`, inclusion is guaranteed.
+### 4.2 Flaw B: The "All-or-Nothing" Opening Deadlock
+* **Naive Architecture:** Systems requiring a single composite root comparison ($\text{DEADLINE\_ROOT} \stackrel{?}{=} \text{OPENING\_ROOT}$) fail catastrophically if a single bidder defaults, loses their key, or intentionally withholds their reveal.
+* **BidTrace Resolution — Leaf-by-Leaf Independent State Machine:**
+  Each bid is tracked in its own `BidCommitment` account. Bidders reveal individually. Defaulting bidders do not obstruct honest participants; once the reveal deadline elapses, evaluation proceeds among compliant revealed bids.
 
-### Flaw B: The "All-or-Nothing" Opening Deadlock
-* **The Flaw in Naive Designs:** Naive systems compare a single deadline root against an opening root:
-  $$\text{DEADLINE\_ROOT} \stackrel{?}{=} \text{OPENING\_ROOT}$$
-  If Bidder B defaults, loses their private key, or refuses to open their bid, $\text{OPENING\_ROOT}$ cannot be constructed, causing the **entire tender to deadlock and fail for all honest bidders**.
-* **The BidTrace Resolution:** **Independent Leaf-by-Leaf State Machine.**
-  * Each bid is stored in its own independent PDA and revealed individually.
-  * The contract tracks aggregate progress via on-chain counters (`total_committed`, `total_revealed`).
-  * If Bidder B vanishes or defaults, Bidder A and Bidder C reveal cleanly, and the tender completes without deadlocking.
+### 4.3 Flaw C: The "Early-Award Lockout" Vulnerability
+* **The Vulnerability Identified:** If a protocol permits the procurement authority to record an award as soon as any single bidder reveals, a corrupt authority colluding with Bidder B could coordinate for Bidder B to reveal first, immediately execute `record_award`, flip the tender state to `Awarded`, and lock out lower-priced honest Bidder A.
+* **BidTrace Resolution — Two-Deadline Phasing & Gated Award:**
+  The protocol splits the process into two distinct consensus slots:
+  1. `submission_deadline_slot`: Intake closes; tender flips to `Locked`.
+  2. `reveal_deadline_slot`: Window for bidders to submit reveal proofs.
+  
+  The instruction `record_award` strictly enforces:
+  $$\text{require!}(\text{slot} > \text{reveal\_deadline\_slot} \lor \text{total\_revealed} == \text{total\_committed},\, \text{RevealWindowActive})$$
+  Honest bidders are guaranteed the full duration of `reveal_deadline_slot` to reveal their submissions.
+
+### 4.4 Flaw D: The "Free Option" Walkaway Exploit
+* **The Vulnerability:** Without an attached commitment bond, a bidder who commits to multiple price scenarios or realizes market conditions changed can withhold their reveal with zero penalty.
+* **BidTrace Resolution — Escrowed Bid Bonds (`bid_deposit`):**
+  When `commit_bid` is called, the bidder must escrow `bid_deposit` lamports into the `BidCommitment` PDA.
+  Upon successful preimage verification in `reveal_bid`, the deposit is refunded to the bidder. If the bidder fails to reveal before `reveal_deadline_slot`, the bond is forfeited.
 
 ---
 
-## 5. Technical Architecture & Cryptographic Construction
+## 5. System Architecture & Cryptographic Construction
 
 ```
 +---------------------------------------------------------------------------------------+
-| 1. PRE-DEADLINE COMMITMENT (Confidential Local Execution)                            |
+| 1. PRE-DEADLINE COMMITMENT (Local Bidder Client)                                      |
 |                                                                                       |
 |  Plaintext Payload: { "bidder": "ACME Corp", "amount": 4200000, "specs": "..." }     |
 |                                                                                       |
@@ -102,37 +116,42 @@ Early iterations of blockchain procurement systems suffered from two fatal flaws
 |        ciphertext_hash || bid_amount.to_le_bytes(8)                                   |
 |    )                                                                                  |
 |                                                                                       |
-|  Solana Anchor Instruction: commit_bid(commitment_hash)                               |
-|  -> Enforced on-chain: clock.slot <= tender.deadline_slot                             |
+|  Anchor Instruction: commit_bid(commitment_hash) [Escrows bid_deposit]                |
+|  -> On-Chain Check: clock.slot <= tender.submission_deadline_slot                      |
 +---------------------------------------------------------------------------------------+
                                           │
                                           ▼
 +---------------------------------------------------------------------------------------+
-| 2. CONSENSUS DEADLINE FREEZE                                                          |
+| 2. SUBMISSION DEADLINE FREEZE                                                         |
 |                                                                                       |
-|  Consensus slot advances past deadline_slot.                                          |
-|  Permissionless instruction lock_tender() is called.                                  |
-|  Program status flips to LOCKED. No further commitments can execute on-chain.         |
+|  Consensus slot advances past submission_deadline_slot.                               |
+|  Permissionless instruction lock_tender() flips status to LOCKED.                     |
+|  No further commitments can execute. Reveal window is now open.                       |
 +---------------------------------------------------------------------------------------+
                                           │
                                           ▼
 +---------------------------------------------------------------------------------------+
-| 3. OPENING / REVEAL PHASE                                                             |
+| 3. REVEAL WINDOW (clock.slot <= tender.reveal_deadline_slot)                          |
 |                                                                                       |
-|  Bidders publish reveal packet: { salt, key, ciphertext, bid_amount }                 |
+|  Bidder broadcasts reveal proof: { salt, ciphertext_hash, bid_amount }                |
 |  Anchor instruction: reveal_bid(salt, ciphertext_hash, bid_amount)                     |
-|  On-Chain Anchor Program recomputes:                                                  |
-|    recomputed_hash == bid_commitment.commitment_hash                                  |
-|  -> Matches: is_revealed = true, revealed_amount = bid_amount                         |
-|  -> Tampered: Reverts with BidTraceError::InvalidRevealHash                           |
+|  On-Chain Check: clock.slot <= tender.reveal_deadline_slot                             |
+|  On-Chain Check: computed_hash == bid.commitment_hash                                 |
+|  -> On Match:                                                                         |
+|     - bid.is_revealed = true                                                          |
+|     - tender.total_revealed += 1                                                      |
+|     - tender tracks lowest compliant bid                                              |
+|     - bid_deposit is refunded to bidder account                                       |
 +---------------------------------------------------------------------------------------+
                                           │
                                           ▼
 +---------------------------------------------------------------------------------------+
-| 4. VERIFIABLE AWARD & AIR-GAPPED AUDIT                                                |
+| 4. GATED AWARD RECORDING                                                              |
 |                                                                                       |
-|  Authority calls record_award(winning_bidder) -> Enforces winner.is_revealed == true  |
-|  Auditor runs standalone verify.py with server powered off -> Cryptographic proof!    |
+|  Authority invokes record_award(winning_bidder)                                       |
+|  Anti-Lockout Gate: clock.slot > reveal_deadline_slot || total_revealed == committed    |
+|  Lowest-Bidder Gate: winning_bidder == tender.lowest_bidder                            |
+|  Status flips to AWARDED. Defaulted unrevealed deposits remain forfeited.             |
 +---------------------------------------------------------------------------------------+
 ```
 
@@ -140,127 +159,121 @@ Early iterations of blockchain procurement systems suffered from two fatal flaws
 
 ## 6. On-Chain Smart Contract Specification (`programs/bidtrace/`)
 
-The on-chain program is implemented in idiomatic Rust using the Anchor 0.30+ framework.
+The Anchor program is organized into decoupled instructions with explicit security constraints:
 
-### 6.1 Program Instructions
+### 6.1 State Accounts (`state.rs`)
+* **`Tender` PDA:** Derived from `[b"tender", authority.key(), tender_id.as_bytes()]`
+  * `authority: Pubkey`
+  * `tender_id: String` (max 32 chars)
+  * `submission_deadline_slot: u64`
+  * `reveal_deadline_slot: u64`
+  * `bid_deposit: u64`
+  * `authorized_bidders_root: [u8; 32]`
+  * `total_committed: u32`
+  * `total_revealed: u32`
+  * `lowest_revealed_amount: u64`
+  * `lowest_bidder: Option<Pubkey>`
+  * `status: TenderStatus` (`Active`, `Locked`, `Awarded`, `Cancelled`)
+  * `winning_bidder: Option<Pubkey>`
+* **`BidCommitment` PDA:** Derived from `[b"bid", tender.key(), bidder.key()]`
+  * `tender: Pubkey`
+  * `bidder: Pubkey`
+  * `commitment_hash: [u8; 32]`
+  * `committed_at_slot: u64`
+  * `escrowed_deposit: u64`
+  * `is_revealed: bool`
+  * `revealed_at_slot: u64`
+  * `revealed_amount: u64`
 
-1. **`initialize_tender(tender_id: String, deadline_slot: u64, authorized_bidders_root: [u8; 32])`**
-   * Derives `Tender` PDA: `[b"tender", authority.key(), tender_id.as_bytes()]`.
-   * Enforces `deadline_slot > Clock::get()?.slot`.
-   * Sets `status = TenderStatus::Active`.
-
-2. **`commit_bid(commitment_hash: [u8; 32], whitelist_proof: Option<Vec<[u8; 32]>>)`**
-   * Derives `BidCommitment` PDA: `[b"bid", tender.key(), bidder.key()]`.
+### 6.2 Instruction Specifications
+1. **`initialize_tender(tender_id, submission_deadline_slot, reveal_deadline_slot, bid_deposit, authorized_bidders_root)`**
+   * Enforces `submission_deadline_slot > clock.slot`.
+   * Enforces `reveal_deadline_slot > submission_deadline_slot`.
+   * Initializes `Tender` PDA with `TenderStatus::Active`.
+2. **`commit_bid(commitment_hash, whitelist_proof)`**
    * Enforces `tender.status == TenderStatus::Active`.
-   * **Strict Consensus Boundary:** `require!(Clock::get()?.slot <= tender.deadline_slot, BidTraceError::DeadlineExceeded)`.
-   * Supports decoupled fee payer (sponsor pays transaction fee while bidder signs as authority).
-
+   * Enforces `clock.slot <= tender.submission_deadline_slot`.
+   * Escrows `tender.bid_deposit` from fee payer into the `BidCommitment` PDA via System CPI.
+   * Increments `tender.total_committed`.
 3. **`lock_tender()`**
-   * **Permissionless:** Anyone can invoke this once `Clock::get()?.slot > tender.deadline_slot`.
-   * Flips `tender.status = TenderStatus::Locked`. Commitments are permanently frozen.
-
-4. **`reveal_bid(salt: [u8; 32], ciphertext_hash: [u8; 32], bid_amount: u64)`**
+   * Permissionless caller.
+   * Enforces `tender.status == TenderStatus::Active`.
+   * Enforces `clock.slot > tender.submission_deadline_slot`.
+   * Transitions status to `TenderStatus::Locked`.
+4. **`reveal_bid(salt, ciphertext_hash, bid_amount)`**
    * Enforces `tender.status == TenderStatus::Locked`.
-   * Enforces `!bid_commitment.is_revealed`.
-   * Recomputes domain-separated SHA-256 preimage.
-   * `require!(computed_hash == bid_commitment.commitment_hash, BidTraceError::InvalidRevealHash)`.
-   * Sets `is_revealed = true`, stores `revealed_amount = bid_amount`, increments `total_revealed`.
-
-5. **`record_award(rationale_hash: [u8; 32])`**
-   * Enforces `tender.status == TenderStatus::Locked`.
-   * Enforces `winning_bid.is_revealed == true`.
-   * Flips `tender.status = TenderStatus::Awarded`.
+   * Enforces `clock.slot <= tender.reveal_deadline_slot`.
+   * Computes domain-separated SHA-256 and asserts equality to `bid.commitment_hash`.
+   * Sets `bid.is_revealed = true`, updates `tender.lowest_bidder` if lowest.
+   * Directly refunds `escrowed_deposit` lamports from `BidCommitment` PDA to `bidder_recipient`.
+5. **`record_award(rationale_hash)`**
+   * Enforces `tender.status == TenderStatus::Locked` and caller is `tender.authority`.
+   * Enforces `clock.slot > tender.reveal_deadline_slot || tender.total_revealed == tender.total_committed`.
+   * Enforces `winning_bid.bidder == tender.lowest_bidder.unwrap()`.
+   * Transitions status to `TenderStatus::Awarded`.
 
 ---
 
-## 7. Adversarial Test Harness & Verified Attack Defenses
+## 7. Protocol Layers: Clarifying Specification vs Reference Engine
 
-The system includes automated adversarial test suites (`tests/test_engine.py` and `tests/bidtrace.ts`) proving defenses against active attack scenarios:
+To maintain clarity during evaluation, the repository cleanly differentiates between protocol layers:
 
-| Attack Scenario | Adversary Action | Protocol Defense | Proven Result |
+| Layer | Component | Path | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Attack 1: Late Bid Injection** | Corrupt admin attempts `commit_bid` for favored contractor after deadline slot passes. | Anchor checks `clock.slot <= deadline_slot`. | **REVERT:** `BidTraceError::DeadlineExceeded` |
-| **Attack 2: Price Tampering** | Admin alters stored database price from \$4.2M to \$3.7M to steal the award. | Anchor recomputes SHA-256 preimage over revealed amount. | **REVERT:** `BidTraceError::InvalidRevealHash` |
-| **Attack 3: Premature Opening** | Admin or competitor attempts to reveal price before deadline closes. | Anchor enforces `tender.status == TenderStatus::Locked`. | **REVERT:** `BidTraceError::TenderNotLocked` |
-| **Attack 4: Operator Censorship** | Operator attempts to delete Bidder C's commitment from the system. | Commitments live in non-custodial PDAs on Solana. | **IMPOSSIBLE:** Admin holds no keys to delete or alter user PDAs. |
-| **Attack 5: Defaulting Bidder** | Bidder B disappears and refuses to reveal key. | Independent leaf reveal state machine. | **TAMPER-FREE:** Honest bidders reveal cleanly; tender awards without deadlock. |
+| **Layer 1** | **Anchor Smart Contract (Rust)** | `programs/bidtrace/` | Canonical on-chain state machine enforcing slot deadlines, PDA derivations, bond escrow, and anti-lockout gating. |
+| **Layer 2** | **Reference Model & Simulator (Python)** | `bidtrace_py/` | Standalone reference implementation simulating the Solana runtime, executing identical cryptographic math, and powering local testing and interactive demos. |
+| **Layer 3** | **Air-Gapped Offline Verifier** | `bidtrace_py/verifier.py` & `verifier/verify.ts` | Independent audit tools verifying standalone JSON bundles against public ledger accounts with zero reliance on backend servers. |
 
 ---
 
-## 8. Standalone Air-Gapped Offline Verifier
+## 8. Governance, Upgrade Authority, and Network Considerations
 
-A core differentiator of BidTrace is that **verification does not require trust in the BidTrace backend or web portal.**
+### 8.1 Upgrade Authority Lifecycle
+Under the Solana BPF Upgradeable Loader, smart contracts retain an upgrade authority key unless explicitly finalized.
+* **Development / Audit Phase:** Multi-signature governance (e.g., Squads Protocol 3-of-5 threshold) with an on-chain timelock to permit non-breaking bug fixes while preventing unilateral administrative tampering.
+* **Mainnet Production Deployment:** Revocation of upgrade authority via:
+  ```bash
+  solana program set-upgrade-authority <PROGRAM_ID> --final
+  ```
+  Once finalized, the program bytecode is permanently immutable on Solana; no authority or developer can modify the deadline or consensus logic.
 
-An auditor receives a lightweight `proof_bundle.json`:
-```json
-{
-  "tender_pda": "16c7f9d56ab07629654ab87406491602622f04255343",
-  "bidder_pubkey": "fb5579f1bf1c022c4a968b...",
-  "salt_hex": "a93e1b...",
-  "bid_amount": 4200000,
-  "ciphertext_b64": "vM38f...",
-  "key_hex": "771e89...",
-  "ciphertext_hash_hex": "99f82a..."
-}
-```
+### 8.2 Consensus Slots vs. Wall-Clock Time
+* Solana slots execute at approximately 400 milliseconds under nominal network conditions.
+* BidTrace relies on `Clock::get()?.slot` rather than `Clock::get()?.unix_timestamp` because consensus slots are strictly monotonic and determined by validator slot leaders, whereas Unix timestamps can experience minor clock drift across validator nodes.
+* **Operational Recommendation:** Procurement authorities should specify slot deadlines with a margin (e.g., 150 slots $\approx 60$ seconds) to accommodate transient slot-skipping during high network load.
 
-The auditor powers off their internet connection to the procurement server and executes:
+---
+
+## 9. Verification & Automated Test Suites
+
+The test harness provides comprehensive verification across all edge cases:
+
+### 1. Run the Complete Adversarial Test Suite
 ```bash
-python -m bidtrace_py.verifier proof_bundle.json ledger_state.json
-```
-The script performs zero-backend mathematical verification:
-1. Validates that the commitment transaction confirmed at `slot <= deadline_slot`.
-2. Validates AES-256-GCM authentication tag and decrypts plaintext.
-3. Recomputes the SHA-256 domain hash and verifies byte-for-byte equality against the on-chain account.
-4. Outputs: `[SUCCESS] Cryptographically Verified Against Solana Consensus Slot #1000`.
-
----
-
-## 9. Blockchain Necessity: Why Solana Beats Non-Blockchain Alternatives
-
-Councils will ask: *"Why does this need Solana instead of a Certificate Transparency log (RFC 6962), AWS QLDB, or OpenTimestamps?"*
-
-| Alternative Architecture | Fatal Vulnerability | Why BidTrace on Solana Wins |
-| :--- | :--- | :--- |
-| **Signed Append-Only DB (AWS QLDB / Oracle)** | Controlled by the same government or enterprise hosting the tender. Keyholders can sign fraudulent retro-dated state. | **Decentralized Consensus:** 2,000+ independent Solana validators enforce the slot boundary; no ministry key can rewrite history. |
-| **Certificate Transparency Logs (RFC 6962 / Sigstore)** | Passive witness log. A log records what happened, but cannot programmatically reject an invalid transaction. | **Active Execution Rules:** Anchor smart contracts programmatically reject late submissions before they can ever enter state. |
-| **Bitcoin / OpenTimestamps** | Block confirmation latency is 10–60 minutes. Too coarse for sub-second procurement deadline disputes. | **400ms Slot Resolution:** Solana provides micro-level slot dispute boundaries for high-precision closing windows. |
-
----
-
-## 10. Council Anticipated Questions & Technical Rebuttals
-
-### Q1: "What if a corrupt government simply awards the contract off-chain to their friend anyway?"
-> **Rebuttal:**  
-> BidTrace is an evidentiary and anti-tamper protocol, not armed police enforcement. In multilateral procurement (World Bank, IMF, municipal bidding), losing bidders file legal bid protests. Today, protests are the bidder's word against the ministry's internal database logs. With BidTrace, the losing bidder presents mathematical proof to courts, investigative journalists, and development banks: *"Here is my cryptographic receipt confirmed at Slot 1000, and here is mathematical proof the ministry altered the opening state."* It transforms invisible corruption into provable fraud.
-
-### Q2: "Can competitors decrypt other bidders' prices before the deadline?"
-> **Rebuttal:**  
-> No. Plaintext prices and AES-256 keys never touch the network prior to the reveal phase. The blockchain only receives a one-way 32-byte SHA-256 commitment hash. Inverting a SHA-256 hash or breaking 256-bit AES-GCM without the key is mathematically infeasible under current physics.
-
-### Q3: "What prevents a bidder from committing garbage or refusing to reveal?"
-> **Rebuttal:**  
-> In BidTrace's independent reveal design, each bid is evaluated on its own merits. If Bidder C submits garbage or refuses to reveal their key, Bidder C is disqualified under formal tender rules. Honest bids from Bidder A and Bidder B remain 100% valid, and the tender concludes without deadlock.
-
----
-
-## 11. Reproducibility & Live Verification Commands
-
-The complete codebase is open-source, tested, and verifiable at [github.com/Ujjwal1396/BitTrace](https://github.com/Ujjwal1396/BitTrace).
-
-### 1. Run the Automated Test Suite (6/6 Tests Passing)
-```powershell
-cd C:\Users\ujjwa\.gemini\antigravity\scratch\bidtrace
 python -m unittest tests/test_engine.py
 ```
+* **Test 01:** Full tender lifecycle across multiple bidders.
+* **Test 02:** Late bid injection post-submission-deadline rejected.
+* **Test 03:** Price tampering during reveal rejected with `InvalidRevealHash`.
+* **Test 04:** Censorship-resistant non-custodial PDA intake.
+* **Test 05:** Partial reveal resilience without deadlock.
+* **Test 06:** Air-gapped offline verifier audit pass.
 
-### 2. Run the 3-Minute Live Terminal Demo
-```powershell
+### 2. Run the Early-Award Lockout Mitigation Tests
+```bash
+python -m unittest tests/test_exploit.py
+```
+* Verifies `record_award` fails with `RevealWindowActive` when an authority attempts early award during an active reveal window.
+* Verifies honest bidders reveal safely and lowest bidder is awarded.
+* Verifies deposit bond forfeiture for unrevealed default bids.
+
+### 3. Run the Live End-to-End Terminal Demonstration
+```bash
 python run_demo.py
 ```
 
-### 3. Run the Interactive Web Dashboard with Real Python Engine
-```powershell
+### 4. Interactive Protocol Server & Browser UI
+```bash
 python server.py
-# Open browser at: http://localhost:8000
+# Open http://localhost:8000 in your browser
 ```

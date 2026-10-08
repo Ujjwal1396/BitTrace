@@ -36,12 +36,12 @@ def verify_proof_bundle(proof_bundle: dict, ledger_state: dict) -> dict:
 
     # 3. Check Slot Adherence (Deadline Proof)
     committed_slot = bid_record["committed_at_slot"]
-    deadline_slot = tender["deadline_slot"]
+    deadline_slot = tender.get("submission_deadline_slot", tender.get("deadline_slot"))
     if committed_slot > deadline_slot:
         return {
             "valid": False,
             "step": "Slot Deadline Check",
-            "error": f"Bid committed at slot {committed_slot}, after deadline {deadline_slot}"
+            "error": f"Bid committed at slot {committed_slot}, after submission deadline {deadline_slot}"
         }
 
     # 4. Decrypt and check plaintext integrity

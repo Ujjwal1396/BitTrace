@@ -208,7 +208,7 @@
         });
         return await res.json();
       } catch (err) {
-        log(`Failed to connect to Python server on http://localhost:8080: ${err}`, "error");
+        log(`Failed to connect to Python server on http://localhost:8000: ${err}`, "error");
         return null;
       }
     }
@@ -224,8 +224,8 @@
       if (res && res.status === "ok") {
         document.getElementById("slot-counter").innerText = res.tender.initialized_at_slot;
         document.getElementById("tender-pda-display").innerText = res.tender.pda;
-        log(`Tender created on Python simulated Anchor ledger! PDA: ${res.tender.pda}`, "success");
-        log(`Authority: ${res.authority_pubkey.slice(0, 16)}... | Deadline Slot: ${res.tender.deadline_slot}`, "normal");
+        log(`Tender created on Python reference ledger! PDA: ${res.tender.pda}`, "success");
+        log(`Authority: ${res.authority_pubkey.slice(0, 16)}... | Submissions Close: Slot ${res.tender.submission_deadline_slot} | Reveals Close: Slot ${res.tender.reveal_deadline_slot}`, "normal");
       }
     }
 

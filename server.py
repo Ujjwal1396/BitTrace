@@ -59,12 +59,16 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
             state.reset()
             tender_id = data.get("tender_id", "TENDER-2026-HIGHWAY-402")
             deadline_slots = data.get("deadline_slots", 50)
-            deadline_slot = state.ledger.current_slot + deadline_slots
+            submission_deadline_slot = state.ledger.current_slot + deadline_slots
+            reveal_deadline_slot = submission_deadline_slot + 50
+            bid_deposit = data.get("bid_deposit", 0)
             
             tender = state.ledger.initialize_tender(
                 authority_pubkey=state.authority["public_key"],
                 tender_id=tender_id,
-                deadline_slot=deadline_slot
+                submission_deadline_slot=submission_deadline_slot,
+                reveal_deadline_slot=reveal_deadline_slot,
+                bid_deposit=bid_deposit
             )
             state.tender_pda = tender["pda"]
             state.tender_id = tender_id

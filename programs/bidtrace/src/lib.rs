@@ -12,17 +12,21 @@ declare_id!("BidTrace111111111111111111111111111111111111");
 pub mod bidtrace {
     use super::*;
 
-    /// 1. Initialize a new tender with a strictly enforced deadline slot
+    /// 1. Initialize a new tender with strictly enforced submission and reveal deadline slots
     pub fn initialize_tender(
         ctx: Context<InitializeTender>,
         tender_id: String,
-        deadline_slot: u64,
+        submission_deadline_slot: u64,
+        reveal_deadline_slot: u64,
+        bid_deposit: u64,
         authorized_bidders_root: [u8; 32],
     ) -> Result<()> {
         instructions::initialize_tender::handle_initialize_tender(
             ctx,
             tender_id,
-            deadline_slot,
+            submission_deadline_slot,
+            reveal_deadline_slot,
+            bid_deposit,
             authorized_bidders_root,
         )
     }

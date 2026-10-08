@@ -10,7 +10,7 @@ pub struct LockTender<'info> {
     )]
     pub tender: Account<'info, Tender>,
 
-    /// Anyone can call this instruction once the deadline slot has passed
+    /// Anyone can call this instruction once the submission deadline has elapsed
     pub caller: Signer<'info>,
 }
 
@@ -19,16 +19,17 @@ pub fn handle_lock_tender(ctx: Context<LockTender>) -> Result<()> {
     let tender = &mut ctx.accounts.tender;
 
     require!(
-        clock.slot > tender.deadline_slot,
-        BidTraceError::DeadlineNotReached
+        clock.slot > tender.submission_deadline_slot,
+        BidTraceError::SubmissionDeadlineNotReached
     );
 
     tender.status = TenderStatus::Locked;
 
     msg!(
-        "Tender locked at slot {}: total_committed={}",
+        "Tender locked at slot {}: total_committed={}, reveal_deadline_slot={}",
         clock.slot,
-        tender.total_committed
+        tender.total_committed,
+        tender.reveal_deadline_slot
     );
 
     Ok(())

@@ -18,7 +18,10 @@ def main():
     # 1. Authority: Init Tender
     init_parser = subparsers.add_parser("init-tender", help="Initialize a new tender")
     init_parser.add_argument("--id", required=True, help="Tender ID (e.g. T-2026-001)")
-    init_parser.add_argument("--deadline-slots", type=int, default=50, help="Number of slots until deadline")
+    init_parser.add_argument("--submission-deadline-slots", type=int, default=50, help="Number of slots until submission deadline")
+    init_parser.add_argument("--reveal-deadline-slots", type=int, default=100, help="Number of slots until reveal deadline")
+    init_parser.add_argument("--bid-deposit", type=int, default=0, help="Deposit bond per bid in lamports/units")
+    init_parser.add_argument("--deadline-slots", type=int, default=None, help="Deprecated: alias for submission-deadline-slots")
 
     # 2. Bidder: Submit Bid
     submit_parser = subparsers.add_parser("submit", help="Submit an encrypted bid before deadline")
@@ -55,15 +58,25 @@ def main():
 
     if args.command == "init-tender":
         auth = generate_keypair()
-        deadline = ledger.current_slot + args.deadline_slots
-        tender = ledger.initialize_tender(auth["public_key"], args.id, deadline)
+        sub_slots = args.deadline_slots if args.deadline_slots is not None else args.submission_deadline_slots
+        sub_deadline = ledger.current_slot + sub_slots
+        rev_deadline = ledger.current_slot + args.reveal_deadline_slots
+        tender = ledger.initialize_tender(
+            authority_pubkey=auth["public_key"],
+            tender_id=args.id,
+            submission_deadline_slot=sub_deadline,
+            reveal_deadline_slot=rev_deadline,
+            bid_deposit=args.bid_deposit
+        )
         print(f"[SUCCESS] Tender Initialized:")
-        print(f"  Tender ID:     {tender['tender_id']}")
-        print(f"  Tender PDA:    {tender['pda']}")
-        print(f"  Authority:     {tender['authority']}")
-        print(f"  Current Slot:  {ledger.current_slot}")
-        print(f"  Deadline Slot: {tender['deadline_slot']}")
-        print(f"  Status:        {tender['status']}")
+        print(f"  Tender ID:            {tender['tender_id']}")
+        print(f"  Tender PDA:           {tender['pda']}")
+        print(f"  Authority:            {tender['authority']}")
+        print(f"  Current Slot:         {ledger.current_slot}")
+        print(f"  Submission Deadline:  Slot {tender['submission_deadline_slot']}")
+        print(f"  Reveal Deadline:      Slot {tender['reveal_deadline_slot']}")
+        print(f"  Bid Bond Deposit:     {tender['bid_deposit']} lamports")
+        print(f"  Status:               {tender['status']}")
 
     elif args.command == "submit":
         bidder = generate_keypair()

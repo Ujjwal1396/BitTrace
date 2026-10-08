@@ -20,7 +20,16 @@ pub struct RevealBid<'info> {
     pub bid_commitment: Account<'info, BidCommitment>,
 
     /// Can be the bidder themselves, or a relayer submitting the reveal proof
+    #[account(mut)]
     pub revealer: Signer<'info>,
+
+    /// The original bidder receiving the refunded bid bond deposit
+    /// CHECK: Must match bid_commitment.bidder
+    #[account(
+        mut,
+        constraint = bidder_recipient.key() == bid_commitment.bidder
+    )]
+    pub bidder_recipient: AccountInfo<'info>,
 }
 
 pub fn handle_reveal_bid(
@@ -32,6 +41,12 @@ pub fn handle_reveal_bid(
     let clock = Clock::get()?;
     let tender = &mut ctx.accounts.tender;
     let bid = &mut ctx.accounts.bid_commitment;
+
+    // Enforce reveal window has not expired
+    require!(
+        clock.slot <= tender.reveal_deadline_slot,
+        BidTraceError::RevealWindowExpired
+    );
 
     // Cryptographic preimage recomputation with strict domain separation
     let mut hasher = Sha256::new();
@@ -54,12 +69,27 @@ pub fn handle_reveal_bid(
 
     tender.total_revealed += 1;
 
+    // Track lowest revealed bid
+    if tender.lowest_bidder.is_none() || bid_amount < tender.lowest_revealed_amount {
+        tender.lowest_revealed_amount = bid_amount;
+        tender.lowest_bidder = Some(bid.bidder);
+    }
+
+    // Refund escrowed bid bond deposit to the original bidder
+    if bid.escrowed_deposit > 0 {
+        let deposit_refund = bid.escrowed_deposit;
+        bid.escrowed_deposit = 0;
+        **bid.to_account_info().try_borrow_mut_lamports()? -= deposit_refund;
+        **ctx.accounts.bidder_recipient.try_borrow_mut_lamports()? += deposit_refund;
+    }
+
     msg!(
-        "Bid revealed: bidder={}, amount={}, revealed={}/{}",
+        "Bid revealed: bidder={}, amount={}, revealed={}/{}, lowest_amount={}",
         bid.bidder,
         bid_amount,
         tender.total_revealed,
-        tender.total_committed
+        tender.total_committed,
+        tender.lowest_revealed_amount
     );
 
     Ok(())

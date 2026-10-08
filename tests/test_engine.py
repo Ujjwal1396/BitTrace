@@ -155,7 +155,15 @@ class TestBidTraceProtocol(unittest.TestCase):
         rev_a = self.ledger.reveal_bid(tender_pda, self.bidder_a["public_key"], salt_a, payload_a["ciphertext_hash_hex"], 4000000)
         self.assertTrue(rev_a["is_revealed"])
 
-        # Tender does not deadlock! Authority awards to valid revealed Bidder A
+        # Early award while reveal window is active is blocked:
+        with self.assertRaises(ValueError) as ctx:
+            self.ledger.record_award(tender_pda, self.authority["public_key"], self.bidder_a["public_key"])
+        self.assertIn("RevealWindowActive", str(ctx.exception))
+
+        # Advance past reveal deadline: slot 1060 + 50 = 1110 (> 1100)
+        self.ledger.advance_slot(50)
+
+        # Tender does not deadlock! Once reveal window expires, authority awards to lowest revealed Bidder A
         awarded = self.ledger.record_award(tender_pda, self.authority["public_key"], self.bidder_a["public_key"])
         self.assertEqual(awarded["winning_bidder"], self.bidder_a["public_key"])
         self.assertEqual(self.ledger.tenders[tender_pda]["total_revealed"], 1)
