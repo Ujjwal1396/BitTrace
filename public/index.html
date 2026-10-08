@@ -76,8 +76,11 @@
               </div>
               <div id="wallet-balance-display" class="text-[10px] text-slate-400">0.00 SOL</div>
             </div>
-            <button onclick="requestDevnetAirdrop()" title="Request 1 Devnet SOL" class="ml-1 px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 rounded cursor-pointer border border-purple-500/30">
+            <button onclick="requestDevnetAirdrop()" title="Request Devnet SOL from Authority Faucet" class="ml-1 px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 rounded cursor-pointer border border-purple-500/30">
               +Airdrop
+            </button>
+            <button onclick="connectPhantomWallet()" title="Switch Phantom Account" class="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-800 text-slate-300 hover:text-white rounded cursor-pointer border border-slate-700">
+              Switch
             </button>
             <button onclick="disconnectPhantomWallet()" title="Disconnect Wallet" class="text-slate-500 hover:text-rose-400 font-bold ml-1 cursor-pointer">
               &times;
@@ -1121,8 +1124,21 @@
         tenderInput.addEventListener("change", updateTenderLiveStatus);
       }
 
-      // Auto-detect Phantom if already authorized
+      // Auto-detect Phantom if already authorized & register state listener
       if (window.BidTraceWeb3 && window.BidTraceWeb3.walletManager.isPhantomInstalled()) {
+        window.BidTraceWeb3.walletManager.onStateChange(async (st) => {
+          if (st.isConnected && st.publicKey) {
+            connectedWalletPublicKey = new solanaWeb3.PublicKey(st.publicKey);
+            updateWalletUI(true, st.publicKey, st.isInternal);
+            await refreshWalletBalance();
+            await updateTenderLiveStatus();
+            logDevnet(`Active wallet changed to: ${st.publicKey.slice(0, 8)}...`, "normal");
+          } else {
+            connectedWalletPublicKey = null;
+            updateWalletUI(false, null, false);
+          }
+        });
+
         const prov = window.BidTraceWeb3.walletManager.getWalletProvider();
         if (prov && prov.publicKey) {
           connectedWalletPublicKey = prov.publicKey;
