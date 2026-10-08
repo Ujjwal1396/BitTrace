@@ -638,28 +638,36 @@
     let activeWeb3TenderPda = null;
 
     async function web3InitializeTender() {
-      if (!connectedWalletPublicKey) {
-        logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
-        await connectInBrowserWallet();
-        if (!connectedWalletPublicKey) return;
-      }
-
-      const tenderId = document.getElementById("input-tender-id").value.trim() || `TENDER-${Math.floor(Date.now() / 1000)}`;
-      const subWindow = parseInt(document.getElementById("input-sub-window").value) || 100;
-      const bond = parseInt(document.getElementById("input-bond-amount").value) || 1000;
-
-      // Auto-increment tender ID if already initialized on-chain
-      let [testPda] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
-      const existingTender = await window.BidTraceWeb3.devnetConnection.getAccountInfo(testPda);
-      if (existingTender) {
-        tenderId = `TENDER-${Math.floor(Date.now() / 1000)}`;
-        document.getElementById("input-tender-id").value = tenderId;
-        logDevnet(`Notice: Tender ID was already initialized. Using fresh ID: ${tenderId}`, "warning");
-      }
-
-      logDevnet(`Preparing initialize_tender transaction for '${tenderId}'...`, "normal");
-
+      const btn = document.getElementById("btn-web3-init");
       try {
+        if (!connectedWalletPublicKey) {
+          logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
+          await connectInBrowserWallet();
+          if (!connectedWalletPublicKey) return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-spin mr-1.5">&#9696;</span> Preparing Transaction...`;
+
+        let tenderId = document.getElementById("input-tender-id").value.trim() || `TENDER-${Math.floor(Date.now() / 1000)}`;
+        const subWindow = parseInt(document.getElementById("input-sub-window").value) || 100;
+        const bond = parseInt(document.getElementById("input-bond-amount").value) || 1000;
+
+        // Auto-increment tender ID if already initialized on-chain
+        try {
+          const [testPda] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
+          const existingTender = await window.BidTraceWeb3.devnetConnection.getAccountInfo(testPda);
+          if (existingTender) {
+            tenderId = `TENDER-${Math.floor(Date.now() / 1000)}`;
+            document.getElementById("input-tender-id").value = tenderId;
+            logDevnet(`Notice: Tender ID was already initialized. Using fresh ID: ${tenderId}`, "warning");
+          }
+        } catch (e) {
+          console.warn("PDA check:", e);
+        }
+
+        logDevnet(`Preparing initialize_tender transaction for '${tenderId}'...`, "normal");
+
         const currentSlot = await window.BidTraceWeb3.devnetConnection.getSlot();
         const subSlot = currentSlot + subWindow;
         const revSlot = subSlot + 150;
@@ -676,7 +684,7 @@
         document.getElementById("devnet-derived-pda").innerText = `PDA: ${tenderPda.toBase58().slice(0, 12)}...`;
 
         const tx = new solanaWeb3.Transaction().add(instruction);
-        logDevnet("Signing transaction and broadcasting to Devnet...", "warning");
+        logDevnet("Prompting wallet to sign and broadcast to Solana Devnet...", "warning");
 
         const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
         logDevnet(`>>> SUCCESS! Tender initialized on Solana Devnet!`, "success");
@@ -686,37 +694,48 @@
         await pollDevnetStatus();
         await refreshWalletBalance();
       } catch (err) {
-        logDevnet(`Transaction Failed: ${err.message}`, "error");
+        logDevnet(`Initialize Tender Failed: ${err.message}`, "error");
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+          <span>Initialize Tender (Sign On-Chain)</span>
+        `;
       }
     }
 
     async function web3CommitBid() {
-      if (!connectedWalletPublicKey) {
-        logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
-        await connectInBrowserWallet();
-        if (!connectedWalletPublicKey) return;
-      }
-
-      const tenderId = document.getElementById("input-tender-id").value.trim() || "TENDER-DEVNET-402";
-      const [derived] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
-      activeWeb3TenderPda = derived;
-
-      // Verify Tender exists on-chain before attempting to commit
-      logDevnet(`Verifying Tender account ${activeWeb3TenderPda.toBase58().slice(0, 10)}... on Devnet...`, "normal");
-      const tenderInfo = await window.BidTraceWeb3.devnetConnection.getAccountInfo(activeWeb3TenderPda);
-      if (!tenderInfo) {
-        const errMsg = `Tender '${tenderId}' has not been initialized on Devnet yet!\n\nPlease click 'Step 1: Initialize Tender (Sign On-Chain)' first so the on-chain tender account is created before committing bids.`;
-        logDevnet(`[PREREQUISITE REQUIRED] ${errMsg}`, "error");
-        alert(errMsg);
-        return;
-      }
-
-      const contractorName = document.getElementById("input-bidder-name").value.trim();
-      const amount = parseInt(document.getElementById("input-bid-amount").value) || 3850000;
-
-      logDevnet(`Generating cryptographic commitment for '${contractorName}' ($${amount.toLocaleString()})...`, "normal");
-
+      const btn = document.getElementById("btn-web3-commit");
       try {
+        if (!connectedWalletPublicKey) {
+          logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
+          await connectInBrowserWallet();
+          if (!connectedWalletPublicKey) return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-spin mr-1.5">&#9696;</span> Preparing Sealed Bid...`;
+
+        const tenderId = document.getElementById("input-tender-id").value.trim() || "TENDER-DEVNET-402";
+        const [derived] = window.BidTraceWeb3.findTenderPDA(connectedWalletPublicKey, tenderId);
+        activeWeb3TenderPda = derived;
+
+        // Verify Tender exists on-chain before attempting to commit
+        logDevnet(`Verifying Tender account ${activeWeb3TenderPda.toBase58().slice(0, 10)}... on Devnet...`, "normal");
+        const tenderInfo = await window.BidTraceWeb3.devnetConnection.getAccountInfo(activeWeb3TenderPda);
+        if (!tenderInfo) {
+          const errMsg = `Tender '${tenderId}' has not been initialized on Devnet yet!\n\nPlease click 'Step 1: Initialize Tender (Sign On-Chain)' first so the on-chain tender account is created before committing bids.`;
+          logDevnet(`[PREREQUISITE REQUIRED] ${errMsg}`, "error");
+          alert(errMsg);
+          return;
+        }
+
+        const contractorName = document.getElementById("input-bidder-name").value.trim();
+        const amount = parseInt(document.getElementById("input-bid-amount").value) || 3850000;
+
+        logDevnet(`Generating cryptographic commitment for '${contractorName}' ($${amount.toLocaleString()})...`, "normal");
+
         const salt = window.BidTraceWeb3.getRandomBytes(32);
         const cipherHash = window.BidTraceWeb3.getRandomBytes(32);
 
@@ -738,7 +757,7 @@
         });
 
         const tx = new solanaWeb3.Transaction().add(instruction);
-        logDevnet("Signing sealed bid submission and broadcasting to Devnet...", "warning");
+        logDevnet("Prompting wallet to sign sealed bid and broadcast to Devnet...", "warning");
 
         const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
         logDevnet(`>>> SUCCESS! Sealed Bid committed on Solana Devnet!`, "success");
@@ -748,7 +767,14 @@
         await pollDevnetStatus();
         await refreshWalletBalance();
       } catch (err) {
-        logDevnet(`Commit Failed: ${err.message}`, "error");
+        logDevnet(`Commit Bid Failed: ${err.message}`, "error");
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+          <span>Commit Sealed Bid (Sign On-Chain)</span>
+        `;
       }
     }
 
