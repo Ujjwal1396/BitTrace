@@ -41,13 +41,16 @@ The repository cleanly separates the protocol specification from its reference s
 | **Layer 2** | **Reference Model & Simulator (Python)** | `bidtrace_py/` | Deterministic local simulation of the Solana ledger, PDA derivations, and AES-256-GCM / SHA-256 cryptographic pipeline. |
 | **Layer 3** | **Air-Gapped Offline Verifier** | `bidtrace_py/verifier.py` & `verifier/verify.ts` | Independent audit tools verifying standalone JSON bundles against public ledger accounts with zero backend dependency. |
 
-### 2.1 On-Chain Program Identity
+### 2.1 Live On-Chain Devnet Deployment
 
-* **Program ID:** `x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ`
-* **Program Binary:** `target/deploy/bidtrace.so` (280,608 bytes, compiled via Agave SBF 4.4.0 / Platform-Tools v1.57)
+* **Network:** Solana Devnet
+* **Program ID:** [`x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ`](https://explorer.solana.com/address/x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ?cluster=devnet)
+* **Deployment Transaction:** [`oNcnMJcLo8HV...7kgpg8`](https://explorer.solana.com/tx/oNcnMJcLo8HV6ZByYYL9d5JeAzG6UzohbHyYNLJFbzkBBhHw53oUZnDE2WYPLWUbxrxuqzoqTnoPWA2CP7kgpg8?cluster=devnet)
+* **Deployed Slot:** `508,757,167`
+* **ProgramData Address:** [`31T65nDyKp5Jyok1AE4YsCLH1nxEbnGWVBqvZjtf9iYp`](https://explorer.solana.com/address/31T65nDyKp5Jyok1AE4YsCLH1nxEbnGWVBqvZjtf9iYp?cluster=devnet)
+* **Upgrade Authority:** [`GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU`](https://explorer.solana.com/address/GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU?cluster=devnet)
 * **Program Loader:** `BPFLoaderUpgradeab1e11111111111111111111111`
-* **ProgramData Address:** `31T65nDyKp5Jyok1AE4YsCLH1nxEbnGWVBqvZjtf9iYp`
-* **Deployer Address:** `GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU`
+* **Compiled SBF Binary:** `target/deploy/bidtrace.so` (280,608 bytes)
 
 ---
 

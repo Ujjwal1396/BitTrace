@@ -161,10 +161,12 @@ To maintain scientific and systems rigor, BidTrace explicitly bounds its securit
 
 The Anchor program is organized into decoupled instructions with explicit security constraints:
 
-* **Canonical Program ID:** `x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ`
+* **Canonical Program ID:** [`x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ`](https://explorer.solana.com/address/x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ?cluster=devnet)
+* **Devnet Deployment Signature:** [`oNcnMJcLo8HV...7kgpg8`](https://explorer.solana.com/tx/oNcnMJcLo8HV6ZByYYL9d5JeAzG6UzohbHyYNLJFbzkBBhHw53oUZnDE2WYPLWUbxrxuqzoqTnoPWA2CP7kgpg8?cluster=devnet)
+* **Deployed Slot:** `508,757,167`
 * **BPF Loader Program:** `BPFLoaderUpgradeab1e11111111111111111111111`
-* **ProgramData Address:** `31T65nDyKp5Jyok1AE4YsCLH1nxEbnGWVBqvZjtf9iYp`
-* **Deployer Authority Key:** `GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU`
+* **ProgramData Address:** [`31T65nDyKp5Jyok1AE4YsCLH1nxEbnGWVBqvZjtf9iYp`](https://explorer.solana.com/address/31T65nDyKp5Jyok1AE4YsCLH1nxEbnGWVBqvZjtf9iYp?cluster=devnet)
+* **Deployer Authority Key:** [`GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU`](https://explorer.solana.com/address/GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU?cluster=devnet)
 
 ### 6.1 State Accounts (`state.rs`)
 * **`Tender` PDA:** Derived from `[b"tender", authority.key(), tender_id.as_bytes()]`
