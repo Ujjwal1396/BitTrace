@@ -405,7 +405,25 @@ class BidTraceWalletManager {
             throw new Error("Tender account already exists on-chain! Please click '⚡ New ID' to generate a fresh unique tender ID.");
           }
         } else if (logsStr.includes("SubmissionDeadlineExceeded") || logsStr.includes("6002")) {
-          throw new Error("The submission window for this Tender has expired! Please initialize a fresh tender to submit bids.");
+          throw new Error("The submission window for this Tender has expired! Commitments are frozen.");
+        } else if (logsStr.includes("SubmissionDeadlineNotReached") || logsStr.includes("6003")) {
+          throw new Error("Consensus slot has not reached the submission deadline yet. Please wait for the deadline to pass before locking the tender.");
+        } else if (logsStr.includes("TenderAlreadyLocked") || logsStr.includes("6004")) {
+          throw new Error("This Tender has already been locked on-chain.");
+        } else if (logsStr.includes("TenderNotLocked") || logsStr.includes("6005")) {
+          throw new Error("Tender must be locked before revealing bids. Please execute Step 3 (Lock Tender) first!");
+        } else if (logsStr.includes("RevealWindowExpired") || logsStr.includes("6006")) {
+          throw new Error("The reveal deadline has expired for this Tender! Reveals are closed.");
+        } else if (logsStr.includes("InvalidRevealHash") || logsStr.includes("6007")) {
+          throw new Error("Cryptographic verification failed: Domain-separated SHA-256 hash does not match your committed on-chain hash! The smart contract prevented tampered data.");
+        } else if (logsStr.includes("BidAlreadyRevealed") || logsStr.includes("6008")) {
+          throw new Error("This bid has already been revealed and verified on Devnet.");
+        } else if (logsStr.includes("RevealWindowActive") || logsStr.includes("6010")) {
+          throw new Error("Cannot award yet! Either all bids must be revealed or the reveal deadline must pass before recording award.");
+        } else if (logsStr.includes("WinnerNotRevealed") || logsStr.includes("6011")) {
+          throw new Error("Winning bid must be revealed before recording award.");
+        } else if (logsStr.includes("WinnerNotLowestBid") || logsStr.includes("6012")) {
+          throw new Error("Security rejected! The selected winning bid does not match the lowest revealed bid.");
         } else if (logsStr.includes("insufficient funds") || logsStr.includes("0x1")) {
           throw new Error("Insufficient Devnet SOL to pay for transaction rent. Please click '+ Airdrop' to fund your wallet.");
         } else {
@@ -414,7 +432,17 @@ class BidTraceWalletManager {
       }
     } catch (simErr) {
       // Re-throw our explicit helpful simulation errors
-      if (simErr.message && (simErr.message.includes("already exists") || simErr.message.includes("expired") || simErr.message.includes("Insufficient") || simErr.message.includes("Simulation failed"))) {
+      if (simErr.message && (
+        simErr.message.includes("already exists") || 
+        simErr.message.includes("already committed") || 
+        simErr.message.includes("expired") || 
+        simErr.message.includes("locked") || 
+        simErr.message.includes("Verification") || 
+        simErr.message.includes("revealed") || 
+        simErr.message.includes("lowest revealed") || 
+        simErr.message.includes("Insufficient") || 
+        simErr.message.includes("Simulation failed")
+      )) {
         throw simErr;
       }
       console.warn("Devnet pre-simulation warning:", simErr);
@@ -467,29 +495,104 @@ async function fetchTenderState(tenderPda) {
     if (!acc || !acc.data || acc.data.length < 50) return { exists: false };
     const data = acc.data;
     const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    
+    // Authority Pubkey (bytes 8..40)
+    const authority = new solanaWeb3.PublicKey(data.subarray(8, 40)).toBase58();
+    
+    // Tender ID (length prefix at 40..44)
     const idLen = dv.getUint32(40, true);
     const id = new TextDecoder().decode(data.subarray(44, 44 + idLen));
     const offset = 44 + idLen;
+    
+    // Deadlines & config
     const subDeadline = Number(dv.getBigUint64(offset, true));
     const revDeadline = Number(dv.getBigUint64(offset + 8, true));
     const bond = Number(dv.getBigUint64(offset + 16, true));
-    const status = data[offset + 24];
+    
+    // Total counters
+    const totalCommitted = dv.getUint32(offset + 56, true);
+    const totalRevealed = dv.getUint32(offset + 60, true);
+    const lowestRevealedAmount = Number(dv.getBigUint64(offset + 64, true));
+    
+    // Option<Pubkey> lowest_bidder
+    let cur = offset + 72;
+    const lowestBidderOpt = data[cur++];
+    let lowestBidder = null;
+    if (lowestBidderOpt === 1) {
+      lowestBidder = new solanaWeb3.PublicKey(data.subarray(cur, cur + 32)).toBase58();
+      cur += 32;
+    }
+    
+    // Lifecycle status enum: 0 = Active, 1 = Locked, 2 = Awarded, 3 = Cancelled
+    const status = data[cur++];
+    
+    // Option<Pubkey> winning_bidder
+    const winningBidderOpt = data[cur++];
+    let winningBidder = null;
+    if (winningBidderOpt === 1) {
+      winningBidder = new solanaWeb3.PublicKey(data.subarray(cur, cur + 32)).toBase58();
+      cur += 32;
+    }
+
     const currentSlot = await devnetConnection.getSlot();
     const isExpired = currentSlot > subDeadline;
+    const isRevealExpired = currentSlot > revDeadline;
     const slotsRemaining = Math.max(0, subDeadline - currentSlot);
+    const revealSlotsRemaining = Math.max(0, revDeadline - currentSlot);
+
     return {
       exists: true,
+      authority,
       id,
       subDeadline,
       revDeadline,
       bond,
+      totalCommitted,
+      totalRevealed,
+      lowestRevealedAmount,
+      lowestBidder,
       status,
+      winningBidder,
       currentSlot,
       isExpired,
-      slotsRemaining
+      isRevealExpired,
+      slotsRemaining,
+      revealSlotsRemaining
     };
   } catch (e) {
     console.warn("fetchTenderState error:", e);
+    return { exists: false };
+  }
+}
+
+async function fetchBidState(bidPda) {
+  try {
+    const pk = new solanaWeb3.PublicKey(bidPda.toString ? bidPda.toString() : bidPda);
+    const acc = await devnetConnection.getAccountInfo(pk);
+    if (!acc || !acc.data || acc.data.length < 130) return { exists: false };
+    const data = acc.data;
+    const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const tender = new solanaWeb3.PublicKey(data.subarray(8, 40)).toBase58();
+    const bidder = new solanaWeb3.PublicKey(data.subarray(40, 72)).toBase58();
+    const commitmentHash = bytesToHex(data.subarray(72, 104));
+    const committedAtSlot = Number(dv.getBigUint64(104, true));
+    const escrowedDeposit = Number(dv.getBigUint64(112, true));
+    const isRevealed = data[120] === 1;
+    const revealedAtSlot = Number(dv.getBigUint64(121, true));
+    const revealedAmount = Number(dv.getBigUint64(129, true));
+    return {
+      exists: true,
+      tender,
+      bidder,
+      commitmentHash,
+      committedAtSlot,
+      escrowedDeposit,
+      isRevealed,
+      revealedAtSlot,
+      revealedAmount
+    };
+  } catch (e) {
+    console.warn("fetchBidState error:", e);
     return { exists: false };
   }
 }
@@ -502,6 +605,7 @@ window.BidTraceWeb3 = {
   findTenderPDA,
   findBidCommitmentPDA,
   fetchTenderState,
+  fetchBidState,
   createInitializeTenderInstruction,
   createCommitBidInstruction,
   createLockTenderInstruction,

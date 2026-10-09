@@ -1,9 +1,26 @@
 {
-  "tenderId": "TENDER-1791465851",
-  "tenderPda": "HYdhz4sT4aCLqzWB6pp8KFpWd8CfP81UeqDdfHtDLGs8",
-  "contractorPubkey": "2bhUNsRTSha6eYS1HJ9oob8ycjde6wfAGoAdp45DRWXM",
-  "bidPda": "SxBz8ke43ddDNcperPR3pLBiD21jX8K5SqweHYq1aMi",
-  "commitmentHash": "caf57b168f91487347ae05d09af84ed74669a4dc9fe232ce3fe1e758e5d0326b",
-  "initTxSignature": "3PP6xiuvnoDTDTLjhg8cFKnmhPcrTP7qSNrGWJKw7RNG5cY6HJ6zrdAte1AiSKA8yrfLbEhdQ2txhnsiXHaf6262",
-  "commitTxSignature": "ZkbGgBnB4BwwkoiAmdxLjXtwkzr5qT55d5GEXEA9Q5wM9vaA44kpWRHCURtgnJPuvvQDmsb7ELTe9EsPyMWfZB3"
+  "tenderId": "TENDER-DEVNET-8123",
+  "tenderPda": "4YHMPVM4xXywPGoFo5NREN33jmqkfDPy9Nf6n72MymWK",
+  "authority": "GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU",
+  "contractorA": {
+    "name": "Apex Infrastructure",
+    "pubkey": "4erLCPWuSHRNB8ppLAwVg7xa9rErGtvjbUEFFto6MdS1",
+    "bidPda": "3zANKcWXMZCZf8zjveuSxbjjtG8Cr5uDy8WT6aw5TGAV",
+    "amount": 3950000,
+    "commitTxSignature": "CFUfK466CaPwkTo46RMHk7TXVBitW2dRFBoqJvVuycMLJy6eewiyVWkX2WwwHzTCRTwAB2L3kqtXLkNo5Z7BZtG",
+    "revealTxSignature": "32cJJFUncHWwdMkTBHerrVC9pNPNw73zBU8Jw8Z3dmhcXpGuhUGxPWzL1o1KzTsGV99BWYrk2trsiiugGHko2iSq"
+  },
+  "contractorB": {
+    "name": "Adarsh Engineering",
+    "pubkey": "EcXRTx5PS3YuWSGXVmbm4TeMHs9m9MWDJGjkV4dNaDD2",
+    "bidPda": "ASNnWS65snNHGa7G6dfgvTmpmZssdokZFzwyt1fjW1Kn",
+    "amount": 3810000,
+    "commitTxSignature": "knqkUrhRbjHwVugxpCdHZWRLvnrhveZqSYc9jMJRW2gqy8id8NzZMEHUNUdF2VEsBokTpDDQ6jKaXGBgspqHTiu",
+    "revealTxSignature": "4actaif7u1HiUqb9mRRFQVKVGTZhTPSMxrq8u6NMcmZ2GhN7XDuF3eb9HsCwcSTtEBVKaz2g24ZvAU1cYtiRWcmy"
+  },
+  "initTxSignature": "23FTCX5Zg7VeWaZ4zmCi743uGQHRaD7SfJTLzzhsAgD4HVPuLKWjwn9JRwzgxHVuug7CMGwqU28MYQCchSZx63nW",
+  "lockTxSignature": "3gwC4CA8MMxRzJ4FcTWAPztrSCPSqskT3vapba3iwiYhFGkmmJCycqVRYgCABji4ApaLvd4y87JLFAWAQnkans6c",
+  "awardTxSignature": "468t7S8kd89RTX1Con9MT5MsgktLLm7c1gGHjuEZRuvHZ5oZoq7r2rcMqNPREYRKnirWaGrw6RKnZizyH6PDi33i",
+  "winnerPubkey": "EcXRTx5PS3YuWSGXVmbm4TeMHs9m9MWDJGjkV4dNaDD2",
+  "winningAmount": 3810000
 }

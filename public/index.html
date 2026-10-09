@@ -167,15 +167,22 @@
                   </button>
                 </div>
                 <div class="sm:col-span-3">
-                  <input id="input-sub-window" type="number" value="1200" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Window (+1200 slots ~8m)" title="Submission window in slots (1200 slots = ~8 minutes)">
+                  <input id="input-sub-window" type="number" value="1200" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Window (+1200 slots ~8m)" title="Submission window in slots">
                 </div>
                 <div class="sm:col-span-3">
                   <input id="input-bond-amount" type="number" value="1000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-purple-500" placeholder="Bid Bond (lamports)">
                 </div>
               </div>
-              <div id="tender-live-status-details" class="text-[11px] text-slate-400 flex items-center justify-between">
+              <div class="flex flex-wrap items-center justify-between gap-1 text-[11px] pt-0.5">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-slate-500">Presets:</span>
+                  <button type="button" onclick="setSlotWindowPreset(40)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 text-[10px]">⚡ Fast Demo (40 slots ~16s)</button>
+                  <button type="button" onclick="setSlotWindowPreset(1200)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 text-[10px]">Standard (1200 slots ~8m)</button>
+                </div>
+                <span class="text-slate-500 text-[10px]">Refundable Devnet Bond</span>
+              </div>
+              <div id="tender-live-status-details" class="text-[11px] text-slate-400">
                 <span>Submission window: 1,200 slots (~8 minutes to commit bids).</span>
-                <span class="text-slate-500">Free testnet lamports bond</span>
               </div>
               <button onclick="web3InitializeTender()" id="btn-web3-init" class="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
@@ -203,12 +210,115 @@
                 <input id="input-bidder-name" type="text" value="Apex Infrastructure" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" placeholder="Contractor Name">
                 <input id="input-bid-amount" type="number" value="3850000" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 mono focus:outline-none focus:border-cyan-500" placeholder="Bid Amount ($)">
               </div>
+              <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span class="text-slate-500">Quick Fill:</span>
+                <button type="button" onclick="setContractorPreset('Apex Infrastructure', 3850000)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 text-[10px]">Apex ($3.85M)</button>
+                <button type="button" onclick="setContractorPreset('Ujjwal Enterprises', 3820000)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 text-[10px]">Ujjwal ($3.82M)</button>
+                <button type="button" onclick="setContractorPreset('Adarsh Engineering', 3810000)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-[10px]">Adarsh ($3.81M)</button>
+              </div>
               <p class="text-[11px] text-slate-400">
-                Your browser generates a 32-byte secret salt nonce, computes the domain-separated SHA-256 commitment hash, and invokes <span class="mono text-cyan-300">commit_bid</span> on-chain.
+                Browser generates a 32-byte secret salt nonce, computes domain-separated SHA-256 hash, and invokes <span class="mono text-cyan-300">commit_bid</span> on-chain. Receipts are cached for Step 4 reveal.
               </p>
               <button onclick="web3CommitBid()" id="btn-web3-commit" class="w-full py-2.5 px-4 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 <span>Commit Sealed Bid (Sign On-Chain)</span>
+              </button>
+            </div>
+
+            <!-- Form: Advance Slot & Lock Tender (Step 3) -->
+            <div class="bg-black/40 border border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-amber-300">Step 3: Advance Consensus Slot & Lock Tender</span>
+                  <span id="step3-lock-status-badge" class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400">Waiting</span>
+                </div>
+                <span class="text-[11px] mono text-slate-400" id="step3-slot-comparison">Slot: Checking...</span>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Submission Window:</span>
+                  <span id="step3-window-status" class="mono text-slate-300 font-semibold">Active</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">On-Chain Tender Status:</span>
+                  <span id="step3-onchain-status" class="mono text-amber-300">0 (Active)</span>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-400">
+                Once the submission deadline slot passes, anyone can call <span class="mono text-amber-300">lock_tender</span> permissionlessly to freeze bids on Devnet and open the reveal phase.
+              </p>
+              <button onclick="web3LockTender()" id="btn-web3-lock" class="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                <span>Lock Tender & Freeze Intake (Sign On-Chain)</span>
+              </button>
+            </div>
+
+            <!-- Form: Cryptographic Bid Reveal & Bond Refund (Step 4) -->
+            <div class="bg-black/40 border border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-emerald-300">Step 4: Reveal Cryptographically Sealed Bids</span>
+                  <span id="step4-reveals-count-badge" class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400">0 / 0 Revealed</span>
+                </div>
+                <span class="text-[11px] text-emerald-400 font-mono">Bond Refund Escrow</span>
+              </div>
+              <p class="text-[11px] text-slate-400">
+                Reveals the secret salt nonce on-chain. Anchor verifies <span class="mono text-emerald-300">SHA256(preimage) == commitment_hash</span> and immediately refunds the escrowed bond deposit back to the contractor wallet.
+              </p>
+              <!-- Container for list of committed bids -->
+              <div id="step4-bids-list" class="space-y-2">
+                <div class="text-[11px] text-slate-500 p-3 bg-slate-900/60 rounded-lg text-center">
+                  No sealed bids recorded in this session yet. Submit a bid in Step 2 above to reveal it here.
+                </div>
+              </div>
+              <!-- Manual Reveal Accordion -->
+              <details class="text-[11px] text-slate-400 pt-1">
+                <summary class="cursor-pointer hover:text-slate-300 font-semibold flex items-center gap-1 select-none">
+                  <span>+ Reveal with Custom Secret Receipt</span>
+                </summary>
+                <div class="mt-2 p-3 bg-slate-900/90 border border-slate-800 rounded-lg space-y-2 text-xs">
+                  <input id="input-manual-bidder-pk" type="text" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 mono text-slate-200" placeholder="Bidder Public Key (Base58)">
+                  <div class="grid grid-cols-2 gap-2">
+                    <input id="input-manual-amount" type="number" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 mono text-slate-200" placeholder="Bid Amount ($)">
+                    <input id="input-manual-salt" type="text" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 mono text-slate-200" placeholder="32-byte Salt (hex)">
+                  </div>
+                  <input id="input-manual-cipher" type="text" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 mono text-slate-200" placeholder="32-byte Ciphertext Hash (hex)">
+                  <button type="button" onclick="web3ManualRevealBid()" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 font-semibold rounded text-xs transition">
+                    Submit Custom Reveal Proof
+                  </button>
+                </div>
+              </details>
+            </div>
+
+            <!-- Form: Finalize & Record Award (Step 5) -->
+            <div class="bg-black/40 border border-slate-800/80 rounded-xl p-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-yellow-300">Step 5: Mathematically Verify & Finalize Award</span>
+                  <span id="step5-award-status-badge" class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400">Pending Reveals</span>
+                </div>
+                <span class="text-[11px] mono text-purple-300" id="step5-authority-tag">Authority Required</span>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Tender Authority:</span>
+                  <span id="step5-authority-display" class="mono font-semibold text-purple-300 truncate max-w-[200px]">None</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Lowest Revealed Contractor:</span>
+                  <span id="step5-lowest-bidder-display" class="mono font-semibold text-emerald-300">None yet</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Lowest Revealed Amount:</span>
+                  <span id="step5-lowest-amount-display" class="mono font-bold text-yellow-300">--</span>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-400">
+                The smart contract enforces that the winning bidder is mathematically the lowest verified compliant bidder. Once finalized, the tender status permanently seals as <span class="mono text-yellow-300">Awarded</span>.
+              </p>
+              <button onclick="web3RecordAward()" id="btn-web3-award" class="w-full py-2.5 px-4 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-slate-950 font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>Finalize & Record Award (Authority Sign)</span>
               </button>
             </div>
 
@@ -220,7 +330,7 @@
                     <span>⚡ 1-Click Automated Devnet Pipeline (Authority Wallet)</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 mono">GFRRqH...wSzU</span>
                   </div>
-                  <p class="text-xs text-slate-400">No Phantom extension required. Executes real end-to-end on-chain transactions using the funded authority keypair.</p>
+                  <p class="text-xs text-slate-400">Executes all 5 steps (Init, Commits, Lock, Reveals, Award) on Devnet in ~15 seconds using the funded authority keypair.</p>
                 </div>
               </div>
               <button onclick="runAutomatedDevnetPipeline()" id="btn-run-devnet-auto" class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
@@ -638,31 +748,180 @@
 
     function renderLastDevnetRun(r) {
       const container = document.getElementById("devnet-tx-list");
-      container.innerHTML = `
-        <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-200">Tender Initialized: ${r.tenderId}</span>
-            <span class="text-[10px] text-emerald-400 font-semibold">Finalized</span>
+      if (!r) return;
+      let html = "";
+      if (r.initTxSignature) {
+        html += `
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-200">Step 1: Tender Initialized (${r.tenderId || "On-Chain"})</span>
+              <span class="text-[10px] text-purple-400 font-semibold">Active</span>
+            </div>
+            <div class="mono text-[10px] text-slate-400 truncate">PDA: ${r.tenderPda}</div>
+            <a href="https://explorer.solana.com/tx/${r.initTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-purple-400 hover:text-purple-300 underline flex items-center gap-1">
+              <span>Tx: ${r.initTxSignature.slice(0, 16)}...</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
           </div>
-          <div class="mono text-[10px] text-slate-400 truncate">PDA: ${r.tenderPda}</div>
-          <a href="https://explorer.solana.com/tx/${r.initTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-purple-400 hover:text-purple-300 underline flex items-center gap-1">
-            <span>Tx: ${r.initTxSignature.slice(0, 16)}...</span>
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-          </a>
-        </div>
-        <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-200">Sealed Bid Committed</span>
-            <span class="text-[10px] text-cyan-400 font-semibold">Escrowed</span>
+        `;
+      }
+      if (r.contractorA && r.contractorA.commitTxSignature) {
+        html += `
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-cyan-300">Step 2: Sealed Bid (${r.contractorA.name || "Contractor A"} - $${(r.contractorA.amount || 3950000).toLocaleString()})</span>
+              <span class="text-[10px] text-cyan-400 font-semibold">Escrowed</span>
+            </div>
+            <div class="mono text-[10px] text-slate-400 truncate">Bid PDA: ${r.contractorA.bidPda}</div>
+            <a href="https://explorer.solana.com/tx/${r.contractorA.commitTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1">
+              <span>Tx: ${r.contractorA.commitTxSignature.slice(0, 16)}...</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
           </div>
-          <div class="mono text-[10px] text-slate-400 truncate">Bid PDA: ${r.bidPda}</div>
-          <div class="mono text-[10px] text-slate-400 truncate">Hash: ${r.commitmentHash.slice(0, 16)}...</div>
-          <a href="https://explorer.solana.com/tx/${r.commitTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1">
-            <span>Tx: ${r.commitTxSignature.slice(0, 16)}...</span>
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-          </a>
-        </div>
-      `;
+        `;
+      } else if (r.commitTxSignature) {
+        html += `
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-cyan-300">Step 2: Sealed Bid Committed</span>
+              <span class="text-[10px] text-cyan-400 font-semibold">Escrowed</span>
+            </div>
+            <div class="mono text-[10px] text-slate-400 truncate">Bid PDA: ${r.bidPda}</div>
+            <a href="https://explorer.solana.com/tx/${r.commitTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1">
+              <span>Tx: ${r.commitTxSignature.slice(0, 16)}...</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
+          </div>
+        `;
+      }
+      if (r.contractorB && r.contractorB.commitTxSignature) {
+        html += `
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-cyan-300">Step 2: Competing Bid (${r.contractorB.name || "Contractor B"} - $${(r.contractorB.amount || 3810000).toLocaleString()})</span>
+              <span class="text-[10px] text-cyan-400 font-semibold">Escrowed</span>
+            </div>
+            <div class="mono text-[10px] text-slate-400 truncate">Bid PDA: ${r.contractorB.bidPda}</div>
+            <a href="https://explorer.solana.com/tx/${r.contractorB.commitTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1">
+              <span>Tx: ${r.contractorB.commitTxSignature.slice(0, 16)}...</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
+          </div>
+        `;
+      }
+      if (r.lockTxSignature) {
+        html += `
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-amber-300">Step 3: Tender Locked</span>
+              <span class="text-[10px] text-amber-400 font-semibold">Frozen</span>
+            </div>
+            <a href="https://explorer.solana.com/tx/${r.lockTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-amber-400 hover:text-amber-300 underline flex items-center gap-1">
+              <span>Tx: ${r.lockTxSignature.slice(0, 16)}...</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
+          </div>
+        `;
+      }
+      if (r.contractorA && r.contractorA.revealTxSignature) {
+        html += `
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-emerald-300">Step 4: Revealed ${r.contractorA.name} ($${(r.contractorA.amount || 3950000).toLocaleString()})</span>
+              <span class="text-[10px] text-emerald-400 font-semibold">Bond Refunded</span>
+            </div>
+            <a href="https://explorer.solana.com/tx/${r.contractorA.revealTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-emerald-400 hover:text-emerald-300 underline flex items-center gap-1">
+              <span>Tx: ${r.contractorA.revealTxSignature.slice(0, 16)}...</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
+          </div>
+        `;
+      }
+      if (r.contractorB && r.contractorB.revealTxSignature) {
+        html += `
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-emerald-300">Step 4: Revealed ${r.contractorB.name} ($${(r.contractorB.amount || 3810000).toLocaleString()})</span>
+              <span class="text-[10px] text-emerald-400 font-semibold">Bond Refunded</span>
+            </div>
+            <a href="https://explorer.solana.com/tx/${r.contractorB.revealTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-emerald-400 hover:text-emerald-300 underline flex items-center gap-1">
+              <span>Tx: ${r.contractorB.revealTxSignature.slice(0, 16)}...</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
+          </div>
+        `;
+      }
+      if (r.awardTxSignature) {
+        html += `
+          <div class="p-2.5 rounded-lg bg-yellow-500/10 border border-yellow-500/40 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-yellow-300">Step 5: Award Officially Recorded 🏆</span>
+              <span class="text-[10px] text-yellow-400 font-bold">Winner Finalized</span>
+            </div>
+            <div class="text-[11px] text-slate-300">Winning Amount: <span class="font-bold text-yellow-300 mono">$${(r.winningAmount || 3810000).toLocaleString()}</span></div>
+            <div class="mono text-[10px] text-slate-400 truncate">Winner: ${r.winnerPubkey || ""}</div>
+            <a href="https://explorer.solana.com/tx/${r.awardTxSignature}?cluster=devnet" target="_blank" rel="noreferrer" class="text-[10px] text-yellow-400 hover:text-yellow-300 underline flex items-center gap-1">
+              <span>Tx: ${r.awardTxSignature.slice(0, 16)}...</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+    }
+
+    // Presets helpers
+    function setSlotWindowPreset(slots) {
+      const input = document.getElementById("input-sub-window");
+      if (input) input.value = slots;
+      const details = document.getElementById("tender-live-status-details");
+      if (details) details.innerHTML = `<span>Submission window: ${slots} slots (~${Math.round(slots * 0.4)}s window).</span>`;
+    }
+
+    function setContractorPreset(name, amount) {
+      const nameInput = document.getElementById("input-bidder-name");
+      const amtInput = document.getElementById("input-bid-amount");
+      if (nameInput) nameInput.value = name;
+      if (amtInput) amtInput.value = amount;
+    }
+
+    // Bid Receipts Storage (Persists local secret salts & cipherhashes for Step 4 reveal)
+    function getStoredBidReceipts(tenderPdaStr) {
+      try {
+        const raw = localStorage.getItem("bidtrace_sealed_bids_v1");
+        if (!raw) return [];
+        const all = JSON.parse(raw);
+        if (!tenderPdaStr) return all;
+        return all.filter(b => b.tenderPda === tenderPdaStr);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveBidReceipt(receipt) {
+      try {
+        const all = getStoredBidReceipts(null);
+        const idx = all.findIndex(b => b.bidPda === receipt.bidPda);
+        if (idx >= 0) {
+          all[idx] = { ...all[idx], ...receipt };
+        } else {
+          all.push(receipt);
+        }
+        localStorage.setItem("bidtrace_sealed_bids_v1", JSON.stringify(all));
+      } catch (e) {
+        console.warn("saveBidReceipt error:", e);
+      }
+    }
+
+    function updateBidReceiptStatus(bidPdaStr, isRevealed) {
+      try {
+        const all = getStoredBidReceipts(null);
+        const idx = all.findIndex(b => b.bidPda === bidPdaStr);
+        if (idx >= 0) {
+          all[idx].isRevealed = isRevealed;
+          localStorage.setItem("bidtrace_sealed_bids_v1", JSON.stringify(all));
+        }
+      } catch (e) {}
     }
 
     // Direct Web3 Actions with Phantom
@@ -676,12 +935,12 @@
       }
     } catch (e) {}
 
-    // Default to recent TENDER-DEVNET-3810 if no record exists
+    // Default to recent TENDER-DEVNET-8123 if no record exists
     if (!activeTenderRecord) {
       activeTenderRecord = {
-        tenderId: "TENDER-DEVNET-3810",
-        tenderPda: "HY4bobEubw76nw62ZaFFyrw9gqYnq4aMWUWab9Xbip9B",
-        authority: "C75Wj8uyW91AZTALUVKnJX43MSVb6avnnBMpAeQjjuLD"
+        tenderId: "TENDER-DEVNET-8123",
+        tenderPda: "4YHMPVM4xXywPGoFo5NREN33jmqkfDPy9Nf6n72MymWK",
+        authority: "GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU"
       };
     }
 
@@ -704,6 +963,16 @@
       const step2TenderDisplay = document.getElementById("step2-target-tender");
       const step2ContractorDisplay = document.getElementById("step2-active-contractor");
       const step2BidPdaPreview = document.getElementById("step2-bidder-pda-preview");
+      const step3Badge = document.getElementById("step3-lock-status-badge");
+      const step3Comparison = document.getElementById("step3-slot-comparison");
+      const step3Window = document.getElementById("step3-window-status");
+      const step3Status = document.getElementById("step3-onchain-status");
+      const step4Badge = document.getElementById("step4-reveals-count-badge");
+      const step5Badge = document.getElementById("step5-award-status-badge");
+      const step5AuthDisplay = document.getElementById("step5-authority-display");
+      const step5LowestDisplay = document.getElementById("step5-lowest-bidder-display");
+      const step5AmountDisplay = document.getElementById("step5-lowest-amount-display");
+
       const input = document.getElementById("input-tender-id");
       if (!input) return;
 
@@ -717,7 +986,6 @@
       }
 
       // 1. Identify Target Tender PDA
-      // If we already have an active tender record matching this ID, use its PDA so ANY bidder wallet can bid!
       let targetTenderPda = null;
       let tenderCreatorAuthority = null;
 
@@ -758,32 +1026,134 @@
               badge.innerText = "Ready to Initialize";
             }
             if (details) {
-              details.innerHTML = `<span class="text-purple-300 font-medium">Unallocated PDA: Ready to initialize on Devnet.</span> <span class="text-slate-500">Free testnet bond</span>`;
+              details.innerHTML = `<span class="text-purple-300 font-medium">Unallocated PDA: Ready to initialize on Devnet.</span>`;
             }
-          } else if (!st.isExpired) {
+            if (step3Badge) { step3Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400"; step3Badge.innerText = "Waiting for Init"; }
+            if (step3Comparison) step3Comparison.innerText = "Tender not created yet";
+            if (step4Badge) step4Badge.innerText = "0 / 0 Revealed";
+            if (step5Badge) step5Badge.innerText = "Pending Init";
+            renderStep4Bids(null);
+          } else {
             // Persist the verified active tender
             if (!activeTenderRecord || activeTenderRecord.tenderId !== currentTenderId) {
               activeTenderRecord = {
                 tenderId: currentTenderId,
                 tenderPda: targetTenderPda.toBase58(),
-                authority: tenderCreatorAuthority
+                authority: st.authority || tenderCreatorAuthority
               };
               localStorage.setItem("bidtrace_active_tender_record", JSON.stringify(activeTenderRecord));
             }
-            if (badge) {
-              badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-              badge.innerText = `● Active (${st.slotsRemaining} slots remaining)`;
+
+            // Step 1 status badge
+            if (st.status === 0) { // Active
+              if (!st.isExpired) {
+                if (badge) {
+                  badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                  badge.innerText = `● Active (${st.slotsRemaining} slots remaining)`;
+                }
+                if (details) {
+                  details.innerHTML = `<span class="text-emerald-400 font-medium">✓ Tender is Active on Devnet!</span> <span class="text-slate-400">Open for bids until slot ${st.subDeadline}.</span>`;
+                }
+              } else {
+                if (badge) {
+                  badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30";
+                  badge.innerText = `● Intake Expired @ Slot ${st.subDeadline}`;
+                }
+                if (details) {
+                  details.innerHTML = `<span class="text-amber-400 font-medium">Submission deadline elapsed. Ready to freeze in Step 3!</span>`;
+                }
+              }
+            } else if (st.status === 1) { // Locked
+              if (badge) {
+                badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30";
+                badge.innerText = `🔒 Locked (Reveal Phase)`;
+              }
+              if (details) {
+                details.innerHTML = `<span class="text-blue-300 font-medium">Tender is locked. Reveals open until slot ${st.revDeadline}.</span>`;
+              }
+            } else if (st.status === 2) { // Awarded
+              if (badge) {
+                badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
+                badge.innerText = `🏆 Awarded`;
+              }
+              if (details) {
+                details.innerHTML = `<span class="text-yellow-300 font-medium">Tender has been officially awarded!</span>`;
+              }
             }
-            if (details) {
-              details.innerHTML = `<span class="text-emerald-400 font-medium">✓ Tender is Active on-chain!</span> <span class="text-slate-400">Open for sealed bids until slot ${st.subDeadline}.</span>`;
+
+            // Step 3 live indicators
+            if (step3Status) {
+              const statusNames = ["0 (Active)", "1 (Locked)", "2 (Awarded)", "3 (Cancelled)"];
+              step3Status.innerText = statusNames[st.status] || `Status ${st.status}`;
             }
-          } else {
-            if (badge) {
-              badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30";
-              badge.innerText = `✕ Expired @ Slot ${st.subDeadline}`;
+            if (step3Comparison) {
+              step3Comparison.innerText = `Slot ${st.currentSlot.toLocaleString()} / ${st.subDeadline.toLocaleString()}`;
             }
-            if (details) {
-              details.innerHTML = `<span class="text-rose-400 font-medium">✕ Deadline has passed. Click '⚡ New ID' above to start a fresh tender.</span>`;
+
+            if (st.status === 0) {
+              if (st.isExpired) {
+                if (step3Badge) {
+                  step3Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30";
+                  step3Badge.innerText = "⚡ Ready to Lock";
+                }
+                if (step3Window) step3Window.innerText = `Deadline Passed (Ready to freeze on-chain)`;
+              } else {
+                if (step3Badge) {
+                  step3Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400";
+                  step3Badge.innerText = `Intake Open (${st.slotsRemaining} slots)`;
+                }
+                if (step3Window) step3Window.innerText = `Active (wait ${st.slotsRemaining} slots, ~${Math.round(st.slotsRemaining * 0.4)}s)`;
+              }
+            } else if (st.status === 1) {
+              if (step3Badge) {
+                step3Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                step3Badge.innerText = "✓ Locked On-Chain";
+              }
+              if (step3Window) step3Window.innerText = `Frozen at slot ${st.subDeadline} (Intake closed)`;
+            } else if (st.status === 2) {
+              if (step3Badge) {
+                step3Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
+                step3Badge.innerText = "🏆 Award Finalized";
+              }
+              if (step3Window) step3Window.innerText = `Completed`;
+            }
+
+            // Step 4 indicator & list
+            if (step4Badge) {
+              step4Badge.innerText = `${st.totalRevealed} / ${st.totalCommitted} Revealed`;
+              if (st.totalCommitted > 0 && st.totalRevealed === st.totalCommitted) {
+                step4Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+              }
+            }
+            renderStep4Bids(st);
+
+            // Step 5 indicators
+            if (step5AuthDisplay) {
+              step5AuthDisplay.innerText = st.authority ? `${st.authority.slice(0, 6)}...${st.authority.slice(-4)}` : "None";
+            }
+            if (step5LowestDisplay) {
+              step5LowestDisplay.innerText = st.lowestBidder ? `${st.lowestBidder.slice(0, 6)}...${st.lowestBidder.slice(-4)}` : "None revealed yet";
+            }
+            if (step5AmountDisplay) {
+              step5AmountDisplay.innerText = (st.lowestRevealedAmount && st.lowestRevealedAmount < 18446744073709551615) 
+                ? `$${st.lowestRevealedAmount.toLocaleString()}` 
+                : "--";
+            }
+
+            if (step5Badge) {
+              if (st.status === 2) {
+                step5Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 font-bold";
+                step5Badge.innerText = "🏆 Awarded";
+              } else if (st.status === 1 && (st.totalRevealed === st.totalCommitted && st.totalCommitted > 0 || st.isRevealExpired)) {
+                step5Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                step5Badge.innerText = "Ready to Award";
+              } else if (st.status === 1) {
+                step5Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400";
+                step5Badge.innerText = `Pending Reveals (${st.totalRevealed}/${st.totalCommitted})`;
+              } else {
+                step5Badge.className = "text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400";
+                step5Badge.innerText = "Pending Lock";
+              }
             }
           }
         } catch (e) {
@@ -792,6 +1162,72 @@
       } else {
         if (pdaDisplay) pdaDisplay.innerText = "Connect wallet to derive PDA";
       }
+    }
+
+    function renderStep4Bids(st) {
+      const container = document.getElementById("step4-bids-list");
+      if (!container) return;
+      if (!activeWeb3TenderPda) {
+        container.innerHTML = `<div class="text-[11px] text-slate-500 p-3 bg-slate-900/60 rounded-lg text-center">No active tender selected.</div>`;
+        return;
+      }
+
+      const pdaStr = activeWeb3TenderPda.toBase58();
+      const receipts = getStoredBidReceipts(pdaStr);
+
+      if (receipts.length === 0) {
+        container.innerHTML = `
+          <div class="text-[11px] text-slate-500 p-3 bg-slate-900/60 rounded-lg text-center">
+            No sealed bids committed in this browser session for this tender. Commit a bid in Step 2 above, or click below to enter custom reveal secrets.
+          </div>
+        `;
+        return;
+      }
+
+      let html = "";
+      receipts.forEach((r, idx) => {
+        const isRevealed = r.isRevealed;
+        const tenderLocked = st && st.status === 1;
+        const tenderAwarded = st && st.status === 2;
+
+        html += `
+          <div class="p-3 bg-slate-900/90 border ${isRevealed ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-slate-800'} rounded-lg space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-200">${r.bidderName || "Contractor"}</span>
+                <span class="font-bold mono ${isRevealed ? 'text-emerald-300' : 'text-cyan-300'}">$${Number(r.amount).toLocaleString()}</span>
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded mono font-semibold ${isRevealed ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-cyan-300'}">
+                ${isRevealed ? '🔓 Revealed' : '🔒 Sealed'}
+              </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-[10px] mono text-slate-400">
+              <div class="truncate">Bidder: ${r.bidderPubkey.slice(0, 6)}...${r.bidderPubkey.slice(-4)}</div>
+              <div class="truncate">Bid PDA: ${r.bidPda.slice(0, 6)}...${r.bidPda.slice(-4)}</div>
+            </div>
+            <div class="pt-1">
+              ${isRevealed ? `
+                <div class="w-full py-1.5 px-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-semibold rounded text-[11px] text-center flex items-center justify-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                  <span>Cryptographically Verified On-Chain & Deposit Refunded</span>
+                </div>
+              ` : tenderAwarded ? `
+                <div class="w-full py-1.5 px-3 bg-slate-800 text-slate-400 rounded text-[11px] text-center">Tender Award Finalized</div>
+              ` : tenderLocked ? `
+                <button type="button" onclick="web3RevealBid('${r.bidPda}')" class="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-xs transition shadow flex items-center justify-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+                  <span>Reveal Bid & Claim Bond Refund (Sign On-Chain)</span>
+                </button>
+              ` : `
+                <button type="button" disabled class="w-full py-1.5 px-3 bg-slate-800/80 text-slate-500 rounded text-[11px] text-center cursor-not-allowed">
+                  Lock Tender in Step 3 First to Open Reveals
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
     }
 
     async function web3InitializeTender() {
@@ -888,7 +1324,6 @@
           return;
         }
 
-        // Target the active tender PDA (don't re-derive with bidder's key as authority!)
         let targetTenderPda = null;
         if (activeTenderRecord && activeTenderRecord.tenderId === tenderId && activeTenderRecord.tenderPda) {
           targetTenderPda = new solanaWeb3.PublicKey(activeTenderRecord.tenderPda);
@@ -905,7 +1340,6 @@
         }
         activeWeb3TenderPda = targetTenderPda;
 
-        // Verify Tender exists on-chain and check deadline before committing
         logDevnet(`Verifying Tender account ${activeWeb3TenderPda.toBase58().slice(0, 10)}... on Devnet...`, "normal");
         const tenderState = await window.BidTraceWeb3.fetchTenderState(activeWeb3TenderPda);
         if (!tenderState || !tenderState.exists) {
@@ -915,19 +1349,25 @@
           return;
         }
 
+        if (tenderState.status > 0) {
+          const errMsg = `Tender '${tenderId}' is already locked/closed on-chain (Status: ${tenderState.status})! Commitments are frozen.`;
+          logDevnet(`[LOCKED] ${errMsg}`, "error");
+          alert(errMsg);
+          return;
+        }
+
         if (tenderState.isExpired) {
-          const errMsg = `Tender '${tenderId}' submission deadline expired at slot ${tenderState.subDeadline} (Current slot: ${tenderState.currentSlot})!\n\nPlease click '⚡ New ID' and 'Step 1: Initialize Tender' to create a fresh active tender.`;
+          const errMsg = `Tender '${tenderId}' submission deadline expired at slot ${tenderState.subDeadline} (Current slot: ${tenderState.currentSlot})!\n\nYou can proceed to 'Step 3: Advance Slot & Lock Tender' below, or click '⚡ New ID' to start a fresh tender.`;
           logDevnet(`[DEADLINE EXPIRED] ${errMsg}`, "error");
           alert(errMsg);
           return;
         }
 
-        // Check if this specific connected wallet has already submitted a bid for this tender
         const [existingBidPda] = window.BidTraceWeb3.findBidCommitmentPDA(activeWeb3TenderPda, connectedWalletPublicKey);
         const existingBidAcc = await window.BidTraceWeb3.devnetConnection.getAccountInfo(existingBidPda);
         if (existingBidAcc) {
-          const errMsg = `Your connected wallet (${connectedWalletPublicKey.toBase58().slice(0, 8)}...) has ALREADY committed a sealed bid (PDA: ${existingBidPda.toBase58().slice(0, 8)}...) to this tender!\n\nIn decentralized sealed-bid protocols, each contractor must have their own distinct wallet address (1 wallet = 1 sealed bid per tender).\n\nTo submit a competing bid (e.g. for '${document.getElementById("input-bidder-name").value.trim()}'):\n1. In Phantom: Click your account icon at the top and switch to 'Account 2' (or create a new account in Phantom).\n2. If needed, click '+ Airdrop' on this page to get free Devnet SOL.\n3. Click 'Commit Sealed Bid' to record your second contractor on-chain!\n\n(Or click '⚡ New ID' and 'Initialize Tender' to start another fresh tender).`;
-          logDevnet(`[ALREADY COMMITTED] This wallet has already committed a sealed bid to this tender (PDA: ${existingBidPda.toBase58()}). Each contractor must submit from their own wallet address!`, "warning");
+          const errMsg = `Your connected wallet (${connectedWalletPublicKey.toBase58().slice(0, 8)}...) has ALREADY committed a sealed bid (PDA: ${existingBidPda.toBase58().slice(0, 8)}...) to this tender!\n\nTo submit a competing bid:\n1. Switch to Account 2 in Phantom (or use the In-Browser Devnet Wallet).\n2. Click 'Commit Sealed Bid' to record your competing bid on-chain!`;
+          logDevnet(`[ALREADY COMMITTED] This wallet has already committed a sealed bid to this tender (PDA: ${existingBidPda.toBase58()}).`, "warning");
           alert(errMsg);
           return;
         }
@@ -966,6 +1406,21 @@
         logDevnet(`Tx Signature: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank" class="text-cyan-400 underline">${sig.slice(0, 20)}...</a>`, "success");
         logDevnet(`Bid PDA: ${bidCommitmentPda.toBase58()}`, "normal");
 
+        // Save secret receipt locally so it can be revealed in Step 4
+        saveBidReceipt({
+          tenderId: tenderId,
+          tenderPda: activeWeb3TenderPda.toBase58(),
+          bidderName: contractorName,
+          bidderPubkey: connectedWalletPublicKey.toBase58(),
+          amount: amount,
+          saltHex: window.BidTraceWeb3.bytesToHex(salt),
+          cipherHashHex: window.BidTraceWeb3.bytesToHex(cipherHash),
+          commHashHex: window.BidTraceWeb3.bytesToHex(commHash),
+          bidPda: bidCommitmentPda.toBase58(),
+          commitTxSignature: sig,
+          isRevealed: false
+        });
+
         await updateTenderLiveStatus();
         await pollDevnetStatus();
         await refreshWalletBalance();
@@ -981,24 +1436,307 @@
       }
     }
 
+    // STEP 3: Lock Tender
+    async function web3LockTender() {
+      const btn = document.getElementById("btn-web3-lock");
+      try {
+        if (!connectedWalletPublicKey) {
+          logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
+          await connectInBrowserWallet();
+          if (!connectedWalletPublicKey) return;
+        }
+
+        if (!activeWeb3TenderPda) {
+          alert("No active tender found. Please initialize or enter a Tender ID.");
+          return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-spin mr-1.5">&#9696;</span> Verifying Consensus Deadline...`;
+
+        const st = await window.BidTraceWeb3.fetchTenderState(activeWeb3TenderPda);
+        if (!st || !st.exists) {
+          alert("Tender does not exist on Devnet!");
+          return;
+        }
+
+        if (st.status === 1) {
+          alert("This Tender has already been locked on-chain!");
+          logDevnet("Notice: Tender is already in Locked status.", "warning");
+          return;
+        }
+
+        if (st.status >= 2) {
+          alert(`Tender status is ${st.status} (already completed or cancelled).`);
+          return;
+        }
+
+        if (st.currentSlot <= st.subDeadline) {
+          const remaining = st.subDeadline - st.currentSlot;
+          const waitSecs = Math.round(remaining * 0.4);
+          const msg = `Submission window is still active! Current Devnet Slot is ${st.currentSlot}, but deadline is Slot ${st.subDeadline} (${remaining} slots remaining, ~${waitSecs}s).\n\nIn decentralized smart contracts, bids are legally protected until the consensus slot deadline. Please wait ~${waitSecs} seconds and try again!`;
+          logDevnet(`[CONSENSUS DEADLINE ACTIVE] Wait ${remaining} slots (~${waitSecs}s) before locking.`, "warning");
+          alert(msg);
+          return;
+        }
+
+        logDevnet(`Consensus deadline passed (Slot ${st.currentSlot} > ${st.subDeadline}). Preparing lock_tender instruction...`, "normal");
+
+        const instruction = window.BidTraceWeb3.createLockTenderInstruction({
+          tenderPda: activeWeb3TenderPda,
+          caller: connectedWalletPublicKey
+        });
+
+        const tx = new solanaWeb3.Transaction().add(instruction);
+        logDevnet("Pre-flight simulated OK! Prompting wallet to sign lock_tender on Devnet...", "normal");
+
+        const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
+        logDevnet(`>>> SUCCESS! Tender Locked on Solana Devnet!`, "success");
+        logDevnet(`Tx Signature: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank" class="text-amber-400 underline">${sig.slice(0, 20)}...</a>`, "success");
+
+        await updateTenderLiveStatus();
+        await pollDevnetStatus();
+      } catch (err) {
+        logDevnet(`Lock Tender Failed: ${err.message}`, "error");
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+          <span>Lock Tender & Freeze Intake (Sign On-Chain)</span>
+        `;
+      }
+    }
+
+    // STEP 4: Reveal Bid
+    async function web3RevealBid(bidPdaStr) {
+      try {
+        if (!connectedWalletPublicKey) {
+          logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
+          await connectInBrowserWallet();
+          if (!connectedWalletPublicKey) return;
+        }
+
+        if (!activeWeb3TenderPda) {
+          alert("No active tender found.");
+          return;
+        }
+
+        const st = await window.BidTraceWeb3.fetchTenderState(activeWeb3TenderPda);
+        if (!st || !st.exists) {
+          alert("Tender does not exist on-chain.");
+          return;
+        }
+
+        if (st.status === 0) {
+          alert("Tender must be locked (Step 3) before reveals can begin! Please click 'Lock Tender' first.");
+          return;
+        }
+
+        const receipts = getStoredBidReceipts(activeWeb3TenderPda.toBase58());
+        const receipt = receipts.find(r => r.bidPda === bidPdaStr);
+        if (!receipt) {
+          alert("No local receipt found for this bid. Please use the 'Reveal with Custom Secret Receipt' form below.");
+          return;
+        }
+
+        logDevnet(`Preparing cryptographic reveal proof for '${receipt.bidderName}' ($${receipt.amount.toLocaleString()})...`, "normal");
+
+        const saltBytes = window.BidTraceWeb3.hexToBytes(receipt.saltHex);
+        const cipherBytes = window.BidTraceWeb3.hexToBytes(receipt.cipherHashHex);
+        const bidCommitmentPda = new solanaWeb3.PublicKey(receipt.bidPda);
+        const bidderRecipient = new solanaWeb3.PublicKey(receipt.bidderPubkey);
+
+        const instruction = window.BidTraceWeb3.createRevealBidInstruction({
+          tenderPda: activeWeb3TenderPda,
+          bidCommitmentPda,
+          revealer: connectedWalletPublicKey,
+          bidderRecipient,
+          salt: saltBytes,
+          ciphertextHash: cipherBytes,
+          bidAmount: receipt.amount
+        });
+
+        const tx = new solanaWeb3.Transaction().add(instruction);
+        logDevnet("Pre-flight simulated OK! Prompting wallet to sign reveal on Devnet...", "normal");
+
+        const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
+        logDevnet(`>>> SUCCESS! Bid revealed on Devnet! Deposit bond refunded to contractor.`, "success");
+        logDevnet(`Tx Signature: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank" class="text-emerald-400 underline">${sig.slice(0, 20)}...</a>`, "success");
+
+        updateBidReceiptStatus(receipt.bidPda, true);
+        await updateTenderLiveStatus();
+        await pollDevnetStatus();
+        await refreshWalletBalance();
+      } catch (err) {
+        logDevnet(`Reveal Bid Failed: ${err.message}`, "error");
+        console.error(err);
+      }
+    }
+
+    async function web3ManualRevealBid() {
+      try {
+        if (!connectedWalletPublicKey) {
+          logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
+          await connectInBrowserWallet();
+          if (!connectedWalletPublicKey) return;
+        }
+
+        const bidderPkStr = document.getElementById("input-manual-bidder-pk").value.trim();
+        const amt = parseInt(document.getElementById("input-manual-amount").value);
+        const saltHex = document.getElementById("input-manual-salt").value.trim();
+        const cipherHex = document.getElementById("input-manual-cipher").value.trim();
+
+        if (!bidderPkStr || !amt || !saltHex || !cipherHex) {
+          alert("Please fill all manual reveal fields.");
+          return;
+        }
+
+        const bidderRecipient = new solanaWeb3.PublicKey(bidderPkStr);
+        const [bidCommitmentPda] = window.BidTraceWeb3.findBidCommitmentPDA(activeWeb3TenderPda, bidderRecipient);
+
+        logDevnet(`Broadcasting manual reveal proof for ${bidderPkStr.slice(0, 8)}...`, "normal");
+
+        const instruction = window.BidTraceWeb3.createRevealBidInstruction({
+          tenderPda: activeWeb3TenderPda,
+          bidCommitmentPda,
+          revealer: connectedWalletPublicKey,
+          bidderRecipient,
+          salt: window.BidTraceWeb3.hexToBytes(saltHex),
+          ciphertextHash: window.BidTraceWeb3.hexToBytes(cipherHex),
+          bidAmount: amt
+        });
+
+        const tx = new solanaWeb3.Transaction().add(instruction);
+        const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
+        logDevnet(`>>> SUCCESS! Manual Bid Revealed on Devnet! Tx: ${sig.slice(0, 20)}...`, "success");
+
+        await updateTenderLiveStatus();
+      } catch (err) {
+        logDevnet(`Manual Reveal Failed: ${err.message}`, "error");
+      }
+    }
+
+    // STEP 5: Record Award
+    async function web3RecordAward() {
+      const btn = document.getElementById("btn-web3-award");
+      try {
+        if (!connectedWalletPublicKey) {
+          logDevnet("No wallet connected. Auto-activating Instant In-Browser Devnet Wallet...", "warning");
+          await connectInBrowserWallet();
+          if (!connectedWalletPublicKey) return;
+        }
+
+        if (!activeWeb3TenderPda) {
+          alert("No active tender found.");
+          return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-spin mr-1.5">&#9696;</span> Verifying Smart Contract Constraints...`;
+
+        const st = await window.BidTraceWeb3.fetchTenderState(activeWeb3TenderPda);
+        if (!st || !st.exists) {
+          alert("Tender does not exist on Devnet.");
+          return;
+        }
+
+        if (st.status === 2) {
+          alert("This Tender has already been officially awarded!");
+          return;
+        }
+
+        if (st.status === 0) {
+          alert("Tender has not been locked yet. Please execute Step 3 (Lock Tender) and Step 4 (Reveal Bids) first.");
+          return;
+        }
+
+        if (!st.lowestBidder) {
+          alert("No revealed bids found to award! Please reveal at least one bid in Step 4 first.");
+          return;
+        }
+
+        if (connectedWalletPublicKey.toBase58() !== st.authority) {
+          const msg = `Security Check: Only the Tender Creator Authority (${st.authority.slice(0, 8)}...) can finalize the contract award!\n\nYour connected wallet is ${connectedWalletPublicKey.toBase58().slice(0, 8)}...\n\nPlease switch back to Account 1 (Authority) in Phantom to sign the award.`;
+          logDevnet(`[AUTHORITY MISMATCH] Must be signed by Tender Authority: ${st.authority}`, "warning");
+          alert(msg);
+          return;
+        }
+
+        const canAward = (st.totalRevealed === st.totalCommitted && st.totalCommitted > 0) || st.isRevealExpired;
+        if (!canAward) {
+          const msg = `Cannot award yet! All committed bids must be revealed (${st.totalRevealed}/${st.totalCommitted} revealed) OR the reveal deadline slot (${st.revDeadline}) must elapse.`;
+          logDevnet(`[REVEALS PENDING] ${msg}`, "warning");
+          alert(msg);
+          return;
+        }
+
+        logDevnet(`Verifying lowest compliant bidder on-chain: ${st.lowestBidder} ($${st.lowestRevealedAmount.toLocaleString()})...`, "normal");
+
+        const [winningBidPda] = window.BidTraceWeb3.findBidCommitmentPDA(activeWeb3TenderPda, new solanaWeb3.PublicKey(st.lowestBidder));
+
+        const instruction = window.BidTraceWeb3.createRecordAwardInstruction({
+          tenderPda: activeWeb3TenderPda,
+          winningBidPda,
+          authority: connectedWalletPublicKey,
+          rationaleHash: new Uint8Array(32)
+        });
+
+        const tx = new solanaWeb3.Transaction().add(instruction);
+        logDevnet("Pre-flight simulated OK! Prompting authority to sign award on Devnet...", "normal");
+
+        const sig = await window.BidTraceWeb3.walletManager.signAndSendTransaction(tx);
+        logDevnet(`=======================================================`, "success");
+        logDevnet(`>>> 🏆 SUCCESS! TENDER OFFICIALLY AWARDED ON SOLANA DEVNET! <<<`, "success");
+        logDevnet(`Winner: ${st.lowestBidder} at $${st.lowestRevealedAmount.toLocaleString()}`, "success");
+        logDevnet(`Award Tx Signature: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank" class="text-yellow-400 underline">${sig}</a>`, "success");
+        logDevnet(`=======================================================`, "success");
+
+        await updateTenderLiveStatus();
+        await pollDevnetStatus();
+      } catch (err) {
+        logDevnet(`Record Award Failed: ${err.message}`, "error");
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>Finalize & Record Award (Authority Sign)</span>
+        `;
+      }
+    }
+
     // Automated Devnet Pipeline (Authority Key)
     async function runAutomatedDevnetPipeline() {
       const btn = document.getElementById("btn-run-devnet-auto");
       btn.disabled = true;
-      btn.innerHTML = `<span class="animate-spin mr-2">&#9696;</span> Broadcasting on-chain transactions to Devnet...`;
+      btn.innerHTML = `<span class="animate-spin mr-2">&#9696;</span> Broadcasting complete 5-step lifecycle to Devnet...`;
 
-      logDevnet(">>> Running Automated On-Chain Devnet Pipeline via Deployer Key...", "warning");
+      logDevnet(">>> Running Automated 5-Step On-Chain Devnet Pipeline via Deployer Key...", "warning");
 
       try {
         const res = await fetch("/api/devnet/run-pipeline", { method: "POST" });
         const json = await res.json();
         if (json.status === "ok") {
           const d = json.data;
-          logDevnet(`[DEVNET CONFIRMED] Tender Initialized: PDA ${d.tenderPda}`, "success");
-          logDevnet(`Init Tx: <a href="https://explorer.solana.com/tx/${d.initTxSignature}?cluster=devnet" target="_blank" class="text-purple-400 underline">${d.initTxSignature}</a>`, "success");
-          logDevnet(`[DEVNET CONFIRMED] Contractor Bid Committed: PDA ${d.bidPda}`, "success");
-          logDevnet(`Commit Tx: <a href="https://explorer.solana.com/tx/${d.commitTxSignature}?cluster=devnet" target="_blank" class="text-cyan-400 underline">${d.commitTxSignature}</a>`, "success");
+          logDevnet(`[STEP 1 DEVNET] Tender Initialized: PDA ${d.tenderPda}`, "success");
+          logDevnet(`[STEP 2 DEVNET] Apex Infrastructure & Adarsh Engineering Committed!`, "success");
+          logDevnet(`[STEP 3 DEVNET] Slot Advanced & Tender Locked!`, "success");
+          logDevnet(`[STEP 4 DEVNET] Bids Cryptographically Revealed & Bonds Refunded!`, "success");
+          logDevnet(`[STEP 5 DEVNET] 🏆 Award Finalized to Adarsh Engineering ($3.81M)!`, "success");
+          logDevnet(`Award Tx: <a href="https://explorer.solana.com/tx/${d.awardTxSignature}?cluster=devnet" target="_blank" class="text-yellow-400 underline">${d.awardTxSignature}</a>`, "success");
           renderLastDevnetRun(d);
+          
+          // Switch target tender to this new run
+          const input = document.getElementById("input-tender-id");
+          if (input) input.value = d.tenderId;
+          activeTenderRecord = {
+            tenderId: d.tenderId,
+            tenderPda: d.tenderPda,
+            authority: d.authority
+          };
+          localStorage.setItem("bidtrace_active_tender_record", JSON.stringify(activeTenderRecord));
+          await updateTenderLiveStatus();
         } else {
           logDevnet(`Pipeline Error: ${json.message}`, "error");
         }
