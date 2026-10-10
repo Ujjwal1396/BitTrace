@@ -421,7 +421,9 @@ def generate_idl():
             {"code": 6034, "name": "InvalidWeights", "msg": "Technical and financial weights must sum exactly to 10,000 basis points (100%)."},
             {"code": 6035, "name": "BondAlreadySettled", "msg": "Bond deposit has already been refunded or settled."},
             {"code": 6036, "name": "BidderIsTechQualified", "msg": "Bidder is technically qualified. Financial envelope must be unsealed to settle bond."},
-            {"code": 6037, "name": "InvalidBondMode", "msg": "Bond mode is not SolanaEscrow."}
+            {"code": 6037, "name": "InvalidBondMode", "msg": "Bond mode is not SolanaEscrow."},
+            {"code": 6038, "name": "AdminReviewDeadlineNotReached", "msg": "Administrative review deadline has not been reached yet."},
+            {"code": 6039, "name": "TechEvalDeadlineNotReached", "msg": "Technical evaluation deadline has not been reached yet."}
         ]
     }
 

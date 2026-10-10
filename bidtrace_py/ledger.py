@@ -317,27 +317,48 @@ class BidTraceLedger:
         self.save_state()
         return bid_record
 
-    def advance_tender_phase(self, tender_pda: str, caller_pubkey: Optional[str] = None) -> dict:
+    def advance_tender_phase(
+        self,
+        tender_pda: str,
+        caller_pubkey: Optional[str] = None,
+        enforce_deadlines: bool = False
+    ) -> dict:
         """
         Advances the state machine:
         SubmissionsOpen -> AdministrativeReview -> TechnicalEvaluation -> FinancialEvaluation -> Awarded
+        
+        SEC-03 Anti-Early-Lockout Defense:
+        When caller_pubkey is provided or enforce_deadlines is True, consensus slot deadlines
+        are strictly enforced. The tender authority CANNOT bypass deadlines to lock out honest
+        bidders or committee evaluators early.
         """
         if tender_pda not in self.tenders:
             raise ValueError("TenderNotFound")
         tender = self.tenders[tender_pda]
 
-        status_transitions = {
-            TenderStatus.SubmissionsOpen: TenderStatus.AdministrativeReview,
-            TenderStatus.AdministrativeReview: TenderStatus.TechnicalEvaluation,
-            TenderStatus.TechnicalEvaluation: TenderStatus.FinancialEvaluation,
-            TenderStatus.FinancialEvaluation: TenderStatus.Awarded
-        }
-
+        should_enforce = enforce_deadlines or (caller_pubkey is not None)
         curr = tender["status"]
-        if curr not in status_transitions:
+
+        if curr == TenderStatus.SubmissionsOpen:
+            if should_enforce and self.current_slot <= tender["submission_deadline_slot"]:
+                raise ValueError("SubmissionDeadlineNotReached: Submissions window is still open")
+            if tender.get("admin_review_deadline_slot") == tender["submission_deadline_slot"]:
+                tender["status"] = TenderStatus.TechnicalEvaluation
+            else:
+                tender["status"] = TenderStatus.AdministrativeReview
+        elif curr == TenderStatus.AdministrativeReview:
+            if should_enforce and self.current_slot <= tender.get("admin_review_deadline_slot", tender["submission_deadline_slot"]):
+                raise ValueError("AdminReviewDeadlineNotReached: Administrative review deadline has not elapsed")
+            tender["status"] = TenderStatus.TechnicalEvaluation
+        elif curr == TenderStatus.TechnicalEvaluation:
+            if should_enforce and self.current_slot <= tender["tech_eval_deadline_slot"]:
+                raise ValueError("TechEvalDeadlineNotReached: Technical evaluation deadline has not elapsed")
+            tender["status"] = TenderStatus.FinancialEvaluation
+        elif curr == TenderStatus.FinancialEvaluation:
+            tender["status"] = TenderStatus.Awarded
+        else:
             raise ValueError(f"Cannot advance tender from status '{curr}'")
 
-        tender["status"] = status_transitions[curr]
         self.save_state()
         return tender
 
@@ -382,7 +403,8 @@ class BidTraceLedger:
         tender_pda: str,
         evaluator_pubkey: str,
         bidder_pubkey: str,
-        commitment_hash: str
+        commitment_hash: str,
+        enforce_deadline: bool = False
     ) -> dict:
         """Commits blinded grade for an evaluator."""
         comm_pda = self.derive_committee_pda(tender_pda)
@@ -391,6 +413,11 @@ class BidTraceLedger:
         comm = self.committees[comm_pda]
         if evaluator_pubkey not in comm["evaluators"]:
             raise ValueError("EvaluatorNotAuthorized")
+
+        if enforce_deadline and tender_pda in self.tenders:
+            tender = self.tenders[tender_pda]
+            if self.current_slot > tender.get("tech_eval_deadline_slot", float("inf")):
+                raise ValueError("TechEvalDeadlineExceeded: Technical evaluation deadline has passed")
 
         grade_pda = self.derive_grade_pda(tender_pda, evaluator_pubkey, bidder_pubkey)
         grade_record = {

@@ -514,9 +514,24 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
             if not state.tender_pda:
                 self.send_json({"status": "error", "message": "No active tender."}, 400)
                 return
-            state.ledger.advance_slot(30)
+            caller = data.get("caller_pubkey", state.authority["public_key"])
+            tender = state.ledger.tenders[state.tender_pda]
+            should_advance_slot = data.get("advance_slot", True)
+            if should_advance_slot:
+                if tender["status"] == TenderStatus.SubmissionsOpen:
+                    state.ledger.current_slot = max(state.ledger.current_slot, tender["submission_deadline_slot"] + 1)
+                elif tender["status"] == TenderStatus.AdministrativeReview:
+                    state.ledger.current_slot = max(state.ledger.current_slot, tender.get("admin_review_deadline_slot", tender["submission_deadline_slot"]) + 1)
+                elif tender["status"] == TenderStatus.TechnicalEvaluation:
+                    state.ledger.current_slot = max(state.ledger.current_slot, tender["tech_eval_deadline_slot"] + 1)
+                else:
+                    state.ledger.advance_slot(30)
             try:
-                tender = state.ledger.advance_tender_phase(state.tender_pda)
+                tender = state.ledger.advance_tender_phase(
+                    state.tender_pda,
+                    caller_pubkey=caller,
+                    enforce_deadlines=True
+                )
                 self.send_json({
                     "status": "ok",
                     "current_slot": state.ledger.current_slot,

@@ -18,6 +18,10 @@ describe("BidTrace 3.0: Incorruptible Two-Envelope & Blinded Scoring Protocol", 
   const bidderB = anchor.web3.Keypair.generate(); // Low tech, rogue score target
   let bidAPda: anchor.web3.PublicKey;
   let bidBPda: anchor.web3.PublicKey;
+  let subSlot: anchor.BN;
+  let adminSlot: anchor.BN;
+  let techSlot: anchor.BN;
+  let finSlot: anchor.BN;
 
   // Evaluators Panel (5 certified evaluators)
   const evaluators = [
@@ -126,10 +130,10 @@ describe("BidTrace 3.0: Incorruptible Two-Envelope & Blinded Scoring Protocol", 
 
   it("Test 1: Authority initializes Two-Envelope QCBS Tender with OCDS Hash and Deadlines", async () => {
     const currentSlot = await provider.connection.getSlot();
-    const subSlot = new anchor.BN(currentSlot + 50);
-    const adminSlot = new anchor.BN(currentSlot + 50);
-    const techSlot = new anchor.BN(currentSlot + 100);
-    const finSlot = new anchor.BN(currentSlot + 150);
+    subSlot = new anchor.BN(currentSlot + 6);
+    adminSlot = new anchor.BN(currentSlot + 6);
+    techSlot = new anchor.BN(currentSlot + 45);
+    finSlot = new anchor.BN(currentSlot + 150);
 
     const ocdsNoticeHash = crypto.createHash("sha256").update(Buffer.from("OCDS_1_1_TENDER_NOTICE_RFC8785")).digest();
 
@@ -231,7 +235,33 @@ describe("BidTrace 3.0: Incorruptible Two-Envelope & Blinded Scoring Protocol", 
   });
 
   it("Test 4: Tender advances to Technical Evaluation and unseals Envelope A", async () => {
-    // Advance phase
+    // SEC-03: Authority Early-Lockout Denial-of-Service Defense Test
+    // Verify that premature advance before submission deadline is strictly rejected even by authority
+    const slotBefore = await provider.connection.getSlot();
+    if (slotBefore <= subSlot.toNumber()) {
+      try {
+        await program.methods
+          .advanceTenderPhase()
+          .accounts({
+            tender: tenderPda,
+            caller: authority.publicKey,
+          })
+          .rpc();
+        assert.fail("Should have failed with SubmissionDeadlineNotReached");
+      } catch (err: any) {
+        assert.ok(
+          err.toString().includes("SubmissionDeadlineNotReached") || err.toString().includes("6003"),
+          `Expected SubmissionDeadlineNotReached, got: ${err}`
+        );
+      }
+    }
+
+    // Wait until consensus slot advances past submission deadline
+    while ((await provider.connection.getSlot()) <= subSlot.toNumber()) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    // Advance phase legitimately once deadline has passed
     await program.methods
       .advanceTenderPhase()
       .accounts({
@@ -428,6 +458,31 @@ describe("BidTrace 3.0: Incorruptible Two-Envelope & Blinded Scoring Protocol", 
   });
 
   it("Test 7 (Commercial Secrecy Invariant): Disqualified Bidder B is strictly prevented from unsealing Financial Envelope", async () => {
+    // SEC-03: Verify that premature advance to Financial Evaluation before tech deadline is strictly rejected even by authority
+    const slotBeforeTech = await provider.connection.getSlot();
+    if (slotBeforeTech <= techSlot.toNumber()) {
+      try {
+        await program.methods
+          .advanceTenderPhase()
+          .accounts({
+            tender: tenderPda,
+            caller: authority.publicKey,
+          })
+          .rpc();
+        assert.fail("Should have failed with TechEvalDeadlineNotReached");
+      } catch (err: any) {
+        assert.ok(
+          err.toString().includes("TechEvalDeadlineNotReached") || err.toString().includes("6039"),
+          `Expected TechEvalDeadlineNotReached, got: ${err}`
+        );
+      }
+    }
+
+    // Wait until consensus slot advances past tech evaluation deadline
+    while ((await provider.connection.getSlot()) <= techSlot.toNumber()) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+
     // Advance to Financial Evaluation phase
     await program.methods
       .advanceTenderPhase()

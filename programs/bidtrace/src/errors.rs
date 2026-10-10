@@ -115,4 +115,10 @@ pub enum BidTraceError {
 
     #[msg("Bond mode is not SolanaEscrow.")]
     InvalidBondMode,
+
+    #[msg("Administrative review deadline has not been reached yet.")]
+    AdminReviewDeadlineNotReached,
+
+    #[msg("Technical evaluation deadline has not been reached yet.")]
+    TechEvalDeadlineNotReached,
 }

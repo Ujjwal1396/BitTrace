@@ -16,8 +16,10 @@ pub fn handle_advance_tender_phase(ctx: Context<AdvanceTenderPhase>) -> Result<(
 
     match tender.status {
         TenderStatus::SubmissionsOpen => {
+            // Anti-Lockout Enforcement: Submissions cannot be closed prematurely
+            // before the advertised consensus slot deadline has elapsed.
             require!(
-                clock.slot > tender.submission_deadline_slot || ctx.accounts.caller.key() == tender.authority,
+                clock.slot > tender.submission_deadline_slot,
                 BidTraceError::SubmissionDeadlineNotReached
             );
             // If admin review slot equals submission deadline slot, advance directly to TechnicalEvaluation
@@ -29,15 +31,15 @@ pub fn handle_advance_tender_phase(ctx: Context<AdvanceTenderPhase>) -> Result<(
         }
         TenderStatus::AdministrativeReview => {
             require!(
-                clock.slot > tender.admin_review_deadline_slot || ctx.accounts.caller.key() == tender.authority,
-                BidTraceError::SubmissionDeadlineNotReached
+                clock.slot > tender.admin_review_deadline_slot,
+                BidTraceError::AdminReviewDeadlineNotReached
             );
             tender.status = TenderStatus::TechnicalEvaluation;
         }
         TenderStatus::TechnicalEvaluation => {
             require!(
-                clock.slot > tender.tech_eval_deadline_slot || ctx.accounts.caller.key() == tender.authority,
-                BidTraceError::SubmissionDeadlineNotReached
+                clock.slot > tender.tech_eval_deadline_slot,
+                BidTraceError::TechEvalDeadlineNotReached
             );
             tender.status = TenderStatus::FinancialEvaluation;
         }
