@@ -75,11 +75,12 @@ def verify_proof_bundle(proof_bundle: dict, ledger_state: dict) -> dict:
         }
 
     # 6. Check Tender Lifecycle Status
-    if tender["status"] not in ["Locked", "Awarded"]:
+    valid_statuses = ["Locked", "Awarded", "TechnicalEvaluation", "FinancialEvaluation"]
+    if tender["status"] not in valid_statuses:
         return {
             "valid": False,
             "step": "Tender Status",
-            "error": f"Tender is in '{tender['status']}' state, expected Locked or Awarded"
+            "error": f"Tender is in '{tender['status']}' state, expected one of {valid_statuses}"
         }
 
     return {
