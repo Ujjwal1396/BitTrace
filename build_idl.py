@@ -423,12 +423,19 @@ def generate_idl():
             {"code": 6036, "name": "BidderIsTechQualified", "msg": "Bidder is technically qualified. Financial envelope must be unsealed to settle bond."},
             {"code": 6037, "name": "InvalidBondMode", "msg": "Bond mode is not SolanaEscrow."},
             {"code": 6038, "name": "AdminReviewDeadlineNotReached", "msg": "Administrative review deadline has not been reached yet."},
-            {"code": 6039, "name": "TechEvalDeadlineNotReached", "msg": "Technical evaluation deadline has not been reached yet."}
+            {"code": 6039, "name": "TechEvalDeadlineNotReached", "msg": "Technical evaluation deadline has not been reached yet."},
+            {"code": 6040, "name": "ZeroPriceNotAllowed", "msg": "Revealed price cannot be zero."},
+            {"code": 6041, "name": "MissingCompetingBids", "msg": "All competing revealed bids must be provided for award validation."},
+            {"code": 6042, "name": "InvalidCompetingBid", "msg": "Invalid competing bid account provided."}
         ]
     }
 
     os.makedirs("target/idl", exist_ok=True)
     with open("target/idl/bidtrace.json", "w") as f:
+        json.dump(idl, f, indent=2)
+
+    os.makedirs("public", exist_ok=True)
+    with open("public/bidtrace_idl.json", "w") as f:
         json.dump(idl, f, indent=2)
 
     os.makedirs("target/types", exist_ok=True)
@@ -441,7 +448,7 @@ export type Bidtrace = {json.dumps(idl, indent=2)};
     with open("target/types/bidtrace.ts", "w") as f:
         f.write(ts_content)
 
-    print("[SUCCESS] target/idl/bidtrace.json and target/types/bidtrace.ts generated successfully!")
+    print("[SUCCESS] target/idl/bidtrace.json, public/bidtrace_idl.json, and target/types/bidtrace.ts generated successfully!")
 
 if __name__ == "__main__":
     generate_idl()

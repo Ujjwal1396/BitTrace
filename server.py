@@ -679,8 +679,9 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
             winner_pubkey = data.get("winning_bidder_pubkey")
             winner_name = data.get("winner_name", "Winning Contractor")
 
-            # Fallback to lowest price among qualified if not supplied
+            # Fallback to highest composite score (or lowest price) if not supplied
             if not winner_pubkey:
+                tender = state.ledger.tenders.get(state.tender_pda, {})
                 qualified_revealed = [
                     b for b in state.ledger.commitments.values()
                     if b["tender_pda"] == state.tender_pda and b["is_tech_qualified"] and b["is_fin_revealed"]
@@ -688,8 +689,19 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
                 if not qualified_revealed:
                     self.send_json({"status": "error", "message": "No qualified and revealed bids found for award."}, 400)
                     return
-                lowest_bid = min(qualified_revealed, key=lambda x: x["revealed_price"])
-                winner_pubkey = lowest_bid["bidder"]
+                if tender.get("evaluation_type") == EvaluationType.LeastCost:
+                    best_bid = min(qualified_revealed, key=lambda x: x["revealed_price"])
+                else:
+                    lowest_p = tender.get("lowest_revealed_price", 0) or min(b["revealed_price"] for b in qualified_revealed)
+                    tech_w = tender.get("tech_weight_bps", 7000)
+                    fin_w = tender.get("fin_weight_bps", 3000)
+                    def calc_score(b):
+                        tech_part = (b["technical_score_bps"] * tech_w) // 10000
+                        fin_ratio = (lowest_p * 10000) // b["revealed_price"] if b["revealed_price"] > 0 else 0
+                        fin_part = (fin_ratio * fin_w) // 10000
+                        return tech_part + fin_part
+                    best_bid = max(qualified_revealed, key=calc_score)
+                winner_pubkey = best_bid["bidder"]
 
             try:
                 res = state.relayer.record_award(

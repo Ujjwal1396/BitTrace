@@ -581,6 +581,9 @@ class BidTraceLedger:
         if expected.lower() != actual.lower():
             raise ValueError(f"InvalidRevealHash: Computed fin hash {expected} != {actual}")
 
+        if price <= 0:
+            raise ValueError("ZeroPriceNotAllowed: Revealed price must be greater than zero")
+
         bid["is_fin_revealed"] = True
         bid["revealed_price"] = price
 
@@ -675,21 +678,44 @@ class BidTraceLedger:
         if not winning_bid["is_fin_revealed"]:
             raise ValueError("WinnerNotRevealed")
 
+        if winning_bid.get("revealed_price", 0) <= 0:
+            raise ValueError("ZeroPriceNotAllowed: Revealed price cannot be zero")
+        if tender.get("lowest_revealed_price", 0) <= 0:
+            raise ValueError("ZeroPriceNotAllowed: Lowest revealed price cannot be zero")
+
         # Programmatic score calculation across all qualified and revealed bidders
+        highest_score = 0
         for b_acc in self.commitments.values():
             if (
                 b_acc.get("tender_pda") == tender_pda
                 and b_acc.get("is_tech_qualified")
                 and b_acc.get("is_fin_revealed")
-                and b_acc.get("revealed_price", 0) > 0
             ):
+                price = b_acc.get("revealed_price", 0)
+                if price <= 0:
+                    raise ValueError("ZeroPriceNotAllowed: Revealed price cannot be zero")
+
                 if tender["evaluation_type"] == EvaluationType.LeastCost:
-                    b_acc["composite_score"] = 10000 if b_acc["revealed_price"] == tender["lowest_revealed_price"] else 0
+                    score = 10000 if price == tender["lowest_revealed_price"] else 0
                 else:
                     tech_part = (b_acc["technical_score_bps"] * tender["tech_weight_bps"]) // 10000
-                    fin_ratio = (tender["lowest_revealed_price"] * 10000) // b_acc["revealed_price"]
+                    fin_ratio = (tender["lowest_revealed_price"] * 10000) // price
                     fin_part = (fin_ratio * tender["fin_weight_bps"]) // 10000
-                    b_acc["composite_score"] = tech_part + fin_part
+                    score = tech_part + fin_part
+
+                b_acc["composite_score"] = score
+                if score > highest_score:
+                    highest_score = score
+
+        if tender["evaluation_type"] == EvaluationType.LeastCost:
+            if winning_bid["revealed_price"] != tender["lowest_revealed_price"]:
+                raise ValueError("WinnerNotLowestPrice: Selected winner does not have the lowest price in Least-Cost mode")
+        else:
+            if winning_bid["composite_score"] < highest_score:
+                raise ValueError(
+                    f"WinnerNotHighestCompositeScore: Selected winner score ({winning_bid['composite_score']}) "
+                    f"is less than highest score ({highest_score})"
+                )
 
         composite_score = winning_bid["composite_score"]
         tender["highest_composite_score"] = composite_score

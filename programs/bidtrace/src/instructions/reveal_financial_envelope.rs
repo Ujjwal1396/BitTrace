@@ -48,6 +48,12 @@ pub fn handle_reveal_financial_envelope(
         BidTraceError::FinancialRevealDeadlineExceeded
     );
 
+    // Guard against zero-price quotes
+    require!(
+        price > 0,
+        BidTraceError::ZeroPriceNotAllowed
+    );
+
     // 2. Cryptographic domain-separated preimage check for Envelope B (Financial)
     let mut hasher = Sha256::new();
     hasher.update(b"BIDTRACE_FIN_V1");

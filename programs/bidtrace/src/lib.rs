@@ -147,8 +147,8 @@ pub mod bidtrace {
     }
 
     /// 10. Record tender award with programmatic QCBS composite scoring formula
-    pub fn record_award_qcbs(
-        ctx: Context<RecordAwardQcbs>,
+    pub fn record_award_qcbs<'info>(
+        ctx: Context<'_, '_, '_, 'info, RecordAwardQcbs<'info>>,
         rationale_hash: [u8; 32],
     ) -> Result<()> {
         instructions::record_award_qcbs::handle_record_award_qcbs(ctx, rationale_hash)

@@ -121,4 +121,14 @@ pub enum BidTraceError {
 
     #[msg("Technical evaluation deadline has not been reached yet.")]
     TechEvalDeadlineNotReached,
+
+    #[msg("Revealed price cannot be zero.")]
+    ZeroPriceNotAllowed,
+
+    #[msg("All competing revealed bids must be provided for award validation.")]
+    MissingCompetingBids,
+
+    #[msg("Invalid competing bid account provided.")]
+    InvalidCompetingBid,
 }
+

@@ -2,14 +2,23 @@
   "address": "x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ",
   "metadata": {
     "name": "bidtrace",
-    "version": "0.1.0",
+    "version": "3.0.0",
     "spec": "0.1.0",
-    "description": "BidTrace - Incorruptible Cryptographic Deadline-Lock for Procurement"
+    "description": "BidTrace 3.0 - Incorruptible Cryptographic Global Standard for Procurement"
   },
   "instructions": [
     {
       "name": "initialize_tender",
-      "discriminator": [35, 122, 240, 102, 12, 18, 17, 104],
+      "discriminator": [
+        209,
+        239,
+        55,
+        105,
+        195,
+        125,
+        42,
+        9
+      ],
       "accounts": [
         {
           "name": "tender",
@@ -18,7 +27,14 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [116, 101, 110, 100, 101, 114]
+                "value": [
+                  116,
+                  101,
+                  110,
+                  100,
+                  101,
+                  114
+                ]
               },
               {
                 "kind": "account",
@@ -47,15 +63,44 @@
           "type": "string"
         },
         {
+          "name": "ocds_notice_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "tender_mode",
+          "type": {
+            "defined": {
+              "name": "TenderMode"
+            }
+          }
+        },
+        {
+          "name": "evaluation_type",
+          "type": {
+            "defined": {
+              "name": "EvaluationType"
+            }
+          }
+        },
+        {
           "name": "submission_deadline_slot",
           "type": "u64"
         },
         {
-          "name": "reveal_deadline_slot",
+          "name": "admin_review_deadline_slot",
           "type": "u64"
         },
         {
-          "name": "bid_deposit",
+          "name": "tech_eval_deadline_slot",
+          "type": "u64"
+        },
+        {
+          "name": "fin_reveal_deadline_slot",
           "type": "u64"
         },
         {
@@ -66,12 +111,98 @@
               32
             ]
           }
+        },
+        {
+          "name": "min_tech_score_bps",
+          "type": "u16"
+        },
+        {
+          "name": "tech_weight_bps",
+          "type": "u16"
+        },
+        {
+          "name": "fin_weight_bps",
+          "type": "u16"
         }
       ]
     },
     {
-      "name": "commit_bid",
-      "discriminator": [41, 124, 185, 226, 169, 111, 23, 103],
+      "name": "initialize_committee",
+      "discriminator": [
+        217,
+        197,
+        33,
+        172,
+        93,
+        122,
+        95,
+        190
+      ],
+      "accounts": [
+        {
+          "name": "tender"
+        },
+        {
+          "name": "committee",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  109,
+                  109,
+                  105,
+                  116,
+                  116,
+                  101,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tender"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "evaluators",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "max_variance_bps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "commit_dual_bid",
+      "discriminator": [
+        40,
+        249,
+        244,
+        168,
+        153,
+        141,
+        2,
+        7
+      ],
       "accounts": [
         {
           "name": "tender",
@@ -84,7 +215,11 @@
             "seeds": [
               {
                 "kind": "const",
-                "value": [98, 105, 100]
+                "value": [
+                  98,
+                  105,
+                  100
+                ]
               },
               {
                 "kind": "account",
@@ -113,13 +248,43 @@
       ],
       "args": [
         {
-          "name": "commitment_hash",
+          "name": "admin_dossier_hash",
           "type": {
             "array": [
               "u8",
               32
             ]
           }
+        },
+        {
+          "name": "tech_commitment_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "fin_commitment_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "bond_mode",
+          "type": {
+            "defined": {
+              "name": "BondMode"
+            }
+          }
+        },
+        {
+          "name": "bond_amount",
+          "type": "u64"
         },
         {
           "name": "whitelist_proof",
@@ -137,8 +302,17 @@
       ]
     },
     {
-      "name": "lock_tender",
-      "discriminator": [223, 137, 237, 104, 103, 203, 115, 62],
+      "name": "advance_tender_phase",
+      "discriminator": [
+        2,
+        25,
+        233,
+        238,
+        242,
+        220,
+        228,
+        93
+      ],
       "accounts": [
         {
           "name": "tender",
@@ -152,8 +326,17 @@
       "args": []
     },
     {
-      "name": "reveal_bid",
-      "discriminator": [128, 77, 230, 219, 12, 172, 137, 60],
+      "name": "reveal_technical_bid",
+      "discriminator": [
+        213,
+        197,
+        155,
+        76,
+        238,
+        25,
+        4,
+        219
+      ],
       "accounts": [
         {
           "name": "tender",
@@ -165,15 +348,148 @@
         },
         {
           "name": "revealer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "salt_tech",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "proposal_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "commit_evaluator_grade",
+      "discriminator": [
+        13,
+        197,
+        60,
+        106,
+        192,
+        51,
+        144,
+        8
+      ],
+      "accounts": [
+        {
+          "name": "tender"
+        },
+        {
+          "name": "committee"
+        },
+        {
+          "name": "bid_commitment"
+        },
+        {
+          "name": "evaluator_grade",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  114,
+                  97,
+                  100,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "tender"
+              },
+              {
+                "kind": "account",
+                "path": "evaluator"
+              },
+              {
+                "kind": "account",
+                "path": "bidder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "evaluator",
           "writable": true,
           "signer": true
         },
         {
-          "name": "bidder_recipient",
-          "writable": true
+          "name": "bidder"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
+        {
+          "name": "commitment_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "reveal_evaluator_grade",
+      "discriminator": [
+        157,
+        192,
+        0,
+        177,
+        105,
+        115,
+        177,
+        82
+      ],
+      "accounts": [
+        {
+          "name": "tender"
+        },
+        {
+          "name": "committee"
+        },
+        {
+          "name": "evaluator_grade",
+          "writable": true
+        },
+        {
+          "name": "evaluator",
+          "signer": true
+        },
+        {
+          "name": "bidder"
+        }
+      ],
+      "args": [
+        {
+          "name": "sub_scores",
+          "type": {
+            "array": [
+              "u16",
+              5
+            ]
+          }
+        },
         {
           "name": "salt",
           "type": {
@@ -184,7 +500,80 @@
           }
         },
         {
-          "name": "ciphertext_hash",
+          "name": "justification_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "finalize_technical_scores",
+      "discriminator": [
+        43,
+        253,
+        112,
+        227,
+        247,
+        125,
+        123,
+        226
+      ],
+      "accounts": [
+        {
+          "name": "tender",
+          "writable": true
+        },
+        {
+          "name": "committee"
+        },
+        {
+          "name": "bid_commitment",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reveal_financial_envelope",
+      "discriminator": [
+        221,
+        151,
+        21,
+        176,
+        92,
+        97,
+        220,
+        115
+      ],
+      "accounts": [
+        {
+          "name": "tender",
+          "writable": true
+        },
+        {
+          "name": "bid_commitment",
+          "writable": true
+        },
+        {
+          "name": "revealer",
+          "signer": true
+        },
+        {
+          "name": "bidder_recipient",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "salt_fin",
           "type": {
             "array": [
               "u8",
@@ -193,14 +582,32 @@
           }
         },
         {
-          "name": "bid_amount",
+          "name": "price",
           "type": "u64"
+        },
+        {
+          "name": "boq_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
         }
       ]
     },
     {
-      "name": "record_award",
-      "discriminator": [136, 17, 14, 109, 107, 110, 151, 146],
+      "name": "record_award_qcbs",
+      "discriminator": [
+        100,
+        8,
+        170,
+        50,
+        84,
+        177,
+        243,
+        200
+      ],
       "accounts": [
         {
           "name": "tender",
@@ -226,16 +633,504 @@
           }
         }
       ]
+    },
+    {
+      "name": "refund_disqualified_bond",
+      "discriminator": [
+        244,
+        3,
+        118,
+        229,
+        4,
+        22,
+        145,
+        121
+      ],
+      "accounts": [
+        {
+          "name": "tender"
+        },
+        {
+          "name": "bid_commitment",
+          "writable": true
+        },
+        {
+          "name": "bidder_recipient",
+          "writable": true
+        },
+        {
+          "name": "caller",
+          "signer": true
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
     {
       "name": "Tender",
-      "discriminator": [198, 140, 240, 169, 171, 19, 14, 109]
+      "discriminator": [
+        168,
+        234,
+        132,
+        162,
+        99,
+        159,
+        184,
+        91
+      ]
     },
     {
-      "name": "BidCommitment",
-      "discriminator": [211, 222, 104, 76, 213, 102, 121, 23]
+      "name": "DualBidCommitment",
+      "discriminator": [
+        222,
+        82,
+        105,
+        230,
+        170,
+        85,
+        154,
+        226
+      ]
+    },
+    {
+      "name": "TenderCommittee",
+      "discriminator": [
+        251,
+        209,
+        160,
+        102,
+        21,
+        56,
+        230,
+        5
+      ]
+    },
+    {
+      "name": "EvaluatorGrade",
+      "discriminator": [
+        40,
+        100,
+        65,
+        209,
+        201,
+        172,
+        247,
+        240
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "Tender",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "tender_id",
+            "type": "string"
+          },
+          {
+            "name": "ocds_notice_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "tender_mode",
+            "type": {
+              "defined": {
+                "name": "TenderMode"
+              }
+            }
+          },
+          {
+            "name": "evaluation_type",
+            "type": {
+              "defined": {
+                "name": "EvaluationType"
+              }
+            }
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "TenderStatus"
+              }
+            }
+          },
+          {
+            "name": "submission_deadline_slot",
+            "type": "u64"
+          },
+          {
+            "name": "admin_review_deadline_slot",
+            "type": "u64"
+          },
+          {
+            "name": "tech_eval_deadline_slot",
+            "type": "u64"
+          },
+          {
+            "name": "fin_reveal_deadline_slot",
+            "type": "u64"
+          },
+          {
+            "name": "authorized_bidders_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "min_tech_score_bps",
+            "type": "u16"
+          },
+          {
+            "name": "tech_weight_bps",
+            "type": "u16"
+          },
+          {
+            "name": "fin_weight_bps",
+            "type": "u16"
+          },
+          {
+            "name": "total_committed",
+            "type": "u32"
+          },
+          {
+            "name": "total_admin_passed",
+            "type": "u32"
+          },
+          {
+            "name": "total_tech_qualified",
+            "type": "u32"
+          },
+          {
+            "name": "total_fin_revealed",
+            "type": "u32"
+          },
+          {
+            "name": "lowest_revealed_price",
+            "type": "u64"
+          },
+          {
+            "name": "highest_composite_score",
+            "type": "u64"
+          },
+          {
+            "name": "winning_bidder",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DualBidCommitment",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tender",
+            "type": "pubkey"
+          },
+          {
+            "name": "bidder",
+            "type": "pubkey"
+          },
+          {
+            "name": "committed_at_slot",
+            "type": "u64"
+          },
+          {
+            "name": "admin_dossier_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "tech_commitment_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "fin_commitment_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "admin_status",
+            "type": {
+              "defined": {
+                "name": "AdminStatus"
+              }
+            }
+          },
+          {
+            "name": "admin_rejection_code",
+            "type": "u16"
+          },
+          {
+            "name": "is_tech_revealed",
+            "type": "bool"
+          },
+          {
+            "name": "technical_score_bps",
+            "type": "u16"
+          },
+          {
+            "name": "is_tech_qualified",
+            "type": "bool"
+          },
+          {
+            "name": "is_fin_revealed",
+            "type": "bool"
+          },
+          {
+            "name": "revealed_price",
+            "type": "u64"
+          },
+          {
+            "name": "composite_score",
+            "type": "u64"
+          },
+          {
+            "name": "bond_mode",
+            "type": {
+              "defined": {
+                "name": "BondMode"
+              }
+            }
+          },
+          {
+            "name": "bond_amount",
+            "type": "u64"
+          },
+          {
+            "name": "is_bond_settled",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TenderCommittee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tender",
+            "type": "pubkey"
+          },
+          {
+            "name": "evaluators",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "max_variance_bps",
+            "type": "u16"
+          },
+          {
+            "name": "is_locked",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvaluatorGrade",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tender",
+            "type": "pubkey"
+          },
+          {
+            "name": "evaluator",
+            "type": "pubkey"
+          },
+          {
+            "name": "bidder",
+            "type": "pubkey"
+          },
+          {
+            "name": "commitment_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "committed_at_slot",
+            "type": "u64"
+          },
+          {
+            "name": "is_revealed",
+            "type": "bool"
+          },
+          {
+            "name": "sub_scores",
+            "type": {
+              "array": [
+                "u16",
+                5
+              ]
+            }
+          },
+          {
+            "name": "total_score_bps",
+            "type": "u16"
+          },
+          {
+            "name": "justification_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "is_outlier_flagged",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TenderStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "SubmissionsOpen"
+          },
+          {
+            "name": "AdministrativeReview"
+          },
+          {
+            "name": "TechnicalEvaluation"
+          },
+          {
+            "name": "FinancialEvaluation"
+          },
+          {
+            "name": "Awarded"
+          },
+          {
+            "name": "Cancelled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TenderMode",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "PreQualifiedWhitelist"
+          },
+          {
+            "name": "PostQualifiedOpen"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvaluationType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "LeastCost"
+          },
+          {
+            "name": "QCBS"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AdminStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Pending"
+          },
+          {
+            "name": "Passed"
+          },
+          {
+            "name": "Failed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondMode",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "SolanaEscrow"
+          },
+          {
+            "name": "SuretyService"
+          },
+          {
+            "name": "BankGuaranteeAttestation"
+          },
+          {
+            "name": "BidSecuringDeclaration"
+          }
+        ]
+      }
     }
   ],
   "errors": [
@@ -246,8 +1141,8 @@
     },
     {
       "code": 6001,
-      "name": "InvalidRevealDeadline",
-      "msg": "Reveal deadline slot must be strictly after the submission deadline slot."
+      "name": "InvalidDeadlineSequence",
+      "msg": "Deadline slots must be strictly sequential (submission <= admin <= tech <= fin)."
     },
     {
       "code": 6002,
@@ -256,63 +1151,203 @@
     },
     {
       "code": 6003,
-      "name": "TenderAlreadyLocked",
-      "msg": "Tender is already locked."
-    },
-    {
-      "code": 6004,
       "name": "SubmissionDeadlineNotReached",
       "msg": "Submission deadline has not been reached yet."
     },
     {
+      "code": 6004,
+      "name": "AdminReviewDeadlineExceeded",
+      "msg": "Admin review deadline has passed."
+    },
+    {
       "code": 6005,
-      "name": "TenderNotLocked",
-      "msg": "Tender is not in locked state."
+      "name": "TechEvalDeadlineExceeded",
+      "msg": "Technical evaluation deadline has passed."
     },
     {
       "code": 6006,
+      "name": "FinancialRevealDeadlineExceeded",
+      "msg": "Financial reveal deadline has passed. Reveals are closed."
+    },
+    {
+      "code": 6007,
+      "name": "TenderNotSubmissionsOpen",
+      "msg": "Tender is not in SubmissionsOpen status."
+    },
+    {
+      "code": 6008,
+      "name": "TenderNotAdminReview",
+      "msg": "Tender is not in AdministrativeReview status."
+    },
+    {
+      "code": 6009,
+      "name": "TenderNotTechnicalEvaluation",
+      "msg": "Tender is not in TechnicalEvaluation status."
+    },
+    {
+      "code": 6010,
+      "name": "TenderNotFinancialEvaluation",
+      "msg": "Tender is not in FinancialEvaluation status."
+    },
+    {
+      "code": 6011,
+      "name": "TenderAlreadyAwarded",
+      "msg": "Tender has already been awarded."
+    },
+    {
+      "code": 6012,
       "name": "UnauthorizedBidder",
       "msg": "Bidder is not in the authorized whitelist."
     },
     {
-      "code": 6007,
-      "name": "InvalidRevealHash",
-      "msg": "Provided reveal data does not match the committed hash."
-    },
-    {
-      "code": 6008,
-      "name": "BidAlreadyRevealed",
-      "msg": "Bid has already been revealed."
-    },
-    {
-      "code": 6009,
-      "name": "RevealWindowExpired",
-      "msg": "Reveal window has expired. Reveals are closed."
-    },
-    {
-      "code": 6010,
-      "name": "RevealWindowActive",
-      "msg": "Reveal window is still active and unrevealed bids remain. Early award is prohibited."
-    },
-    {
-      "code": 6011,
-      "name": "WinnerNotRevealed",
-      "msg": "Winning bidder has not revealed their bid."
-    },
-    {
-      "code": 6012,
-      "name": "WinnerNotLowestBid",
-      "msg": "Selected winner is not the lowest compliant revealed bid."
-    },
-    {
       "code": 6013,
+      "name": "InvalidMerkleProof",
+      "msg": "Merkle proof verification failed."
+    },
+    {
+      "code": 6014,
+      "name": "InvalidRevealHash",
+      "msg": "Provided reveal preimage does not match the committed cryptographic hash."
+    },
+    {
+      "code": 6015,
+      "name": "TechAlreadyRevealed",
+      "msg": "Technical bid has already been revealed."
+    },
+    {
+      "code": 6016,
+      "name": "TechNotRevealed",
+      "msg": "Technical proposal has not been revealed yet."
+    },
+    {
+      "code": 6017,
+      "name": "FinAlreadyRevealed",
+      "msg": "Financial envelope has already been revealed."
+    },
+    {
+      "code": 6018,
+      "name": "BidderTechnicallyDisqualified",
+      "msg": "Commercial Secrecy Invariant: Bidder is technically disqualified. Financial envelope is permanently sealed."
+    },
+    {
+      "code": 6019,
+      "name": "BidderNotAdminPassed",
+      "msg": "Bidder has not passed administrative due diligence."
+    },
+    {
+      "code": 6020,
+      "name": "WinnerNotQualified",
+      "msg": "Winning bidder is not technically qualified."
+    },
+    {
+      "code": 6021,
+      "name": "WinnerNotRevealed",
+      "msg": "Winning bidder has not unsealed their financial envelope."
+    },
+    {
+      "code": 6022,
+      "name": "WinnerNotLowestPrice",
+      "msg": "Selected winner does not have the lowest price in Least-Cost mode."
+    },
+    {
+      "code": 6023,
+      "name": "WinnerNotHighestCompositeScore",
+      "msg": "Selected winner does not have the highest composite score in QCBS mode."
+    },
+    {
+      "code": 6024,
+      "name": "FinancialRevealWindowActive",
+      "msg": "Anti-Lockout Gate: Financial reveal window is active and qualified bids remain unrevealed."
+    },
+    {
+      "code": 6025,
       "name": "TenderIdTooLong",
       "msg": "Tender ID exceeds maximum allowed length of 32 characters."
     },
     {
-      "code": 6014,
+      "code": 6026,
       "name": "InsufficientDeposit",
       "msg": "Insufficient deposit attached for bid commitment bond."
+    },
+    {
+      "code": 6027,
+      "name": "EvaluatorNotAuthorized",
+      "msg": "Signer is not an accredited member of the Tender Committee."
+    },
+    {
+      "code": 6028,
+      "name": "CommitteeAlreadyLocked",
+      "msg": "Tender committee roster is already locked."
+    },
+    {
+      "code": 6029,
+      "name": "GradeAlreadyRevealed",
+      "msg": "Evaluator grade has already been revealed."
+    },
+    {
+      "code": 6030,
+      "name": "GradeNotRevealed",
+      "msg": "Evaluator grade has not been revealed yet."
+    },
+    {
+      "code": 6031,
+      "name": "InsufficientEvaluatorGrades",
+      "msg": "At least 3 revealed committee evaluations required for trimmed mean scoring."
+    },
+    {
+      "code": 6032,
+      "name": "InvalidSubScores",
+      "msg": "Sub-scores do not match the claimed total score."
+    },
+    {
+      "code": 6033,
+      "name": "SubScoresOutOfRange",
+      "msg": "Sub-scores exceed maximum allowed value (10,000 bps total)."
+    },
+    {
+      "code": 6034,
+      "name": "InvalidWeights",
+      "msg": "Technical and financial weights must sum exactly to 10,000 basis points (100%)."
+    },
+    {
+      "code": 6035,
+      "name": "BondAlreadySettled",
+      "msg": "Bond deposit has already been refunded or settled."
+    },
+    {
+      "code": 6036,
+      "name": "BidderIsTechQualified",
+      "msg": "Bidder is technically qualified. Financial envelope must be unsealed to settle bond."
+    },
+    {
+      "code": 6037,
+      "name": "InvalidBondMode",
+      "msg": "Bond mode is not SolanaEscrow."
+    },
+    {
+      "code": 6038,
+      "name": "AdminReviewDeadlineNotReached",
+      "msg": "Administrative review deadline has not been reached yet."
+    },
+    {
+      "code": 6039,
+      "name": "TechEvalDeadlineNotReached",
+      "msg": "Technical evaluation deadline has not been reached yet."
+    },
+    {
+      "code": 6040,
+      "name": "ZeroPriceNotAllowed",
+      "msg": "Revealed price cannot be zero."
+    },
+    {
+      "code": 6041,
+      "name": "MissingCompetingBids",
+      "msg": "All competing revealed bids must be provided for award validation."
+    },
+    {
+      "code": 6042,
+      "name": "InvalidCompetingBid",
+      "msg": "Invalid competing bid account provided."
     }
   ]
 }
