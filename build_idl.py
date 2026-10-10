@@ -205,6 +205,17 @@ def generate_idl():
                 "args": [
                     {"name": "rationale_hash", "type": {"array": ["u8", 32]}}
                 ]
+            },
+            {
+                "name": "refund_disqualified_bond",
+                "discriminator": discriminator("global", "refund_disqualified_bond"),
+                "accounts": [
+                    {"name": "tender"},
+                    {"name": "bid_commitment", "writable": True},
+                    {"name": "bidder_recipient", "writable": True},
+                    {"name": "caller", "signer": True}
+                ],
+                "args": []
             }
         ],
         "accounts": [
@@ -407,7 +418,10 @@ def generate_idl():
             {"code": 6031, "name": "InsufficientEvaluatorGrades", "msg": "At least 3 revealed committee evaluations required for trimmed mean scoring."},
             {"code": 6032, "name": "InvalidSubScores", "msg": "Sub-scores do not match the claimed total score."},
             {"code": 6033, "name": "SubScoresOutOfRange", "msg": "Sub-scores exceed maximum allowed value (10,000 bps total)."},
-            {"code": 6034, "name": "InvalidWeights", "msg": "Technical and financial weights must sum exactly to 10,000 basis points (100%)."}
+            {"code": 6034, "name": "InvalidWeights", "msg": "Technical and financial weights must sum exactly to 10,000 basis points (100%)."},
+            {"code": 6035, "name": "BondAlreadySettled", "msg": "Bond deposit has already been refunded or settled."},
+            {"code": 6036, "name": "BidderIsTechQualified", "msg": "Bidder is technically qualified. Financial envelope must be unsealed to settle bond."},
+            {"code": 6037, "name": "InvalidBondMode", "msg": "Bond mode is not SolanaEscrow."}
         ]
     }
 

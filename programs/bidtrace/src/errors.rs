@@ -106,4 +106,13 @@ pub enum BidTraceError {
 
     #[msg("Technical and financial weights must sum exactly to 10,000 basis points (100%).")]
     InvalidWeights,
+
+    #[msg("Bond deposit has already been refunded or settled.")]
+    BondAlreadySettled,
+
+    #[msg("Bidder is technically qualified. Financial envelope must be unsealed to settle bond.")]
+    BidderIsTechQualified,
+
+    #[msg("Bond mode is not SolanaEscrow.")]
+    InvalidBondMode,
 }

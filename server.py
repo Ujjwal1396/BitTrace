@@ -600,6 +600,22 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"status": "ok", "revealed": revealed_list})
             return
 
+        # 7b. Refund Disqualified Bidder Bond (Commercial Secrecy preserved)
+        if parsed_path in ["/api/bond/refund_disqualified", "/api/bid/refund_disqualified_bond"]:
+            if not state.tender_pda:
+                self.send_json({"status": "error", "message": "No active tender."}, 400)
+                return
+            bidder = data.get("bidder_pubkey")
+            if not bidder:
+                self.send_json({"status": "error", "message": "Missing bidder_pubkey."}, 400)
+                return
+            try:
+                res = state.relayer.refund_disqualified_bond(state.tender_pda, bidder)
+                self.send_json({"status": "ok", "result": res})
+            except Exception as e:
+                self.send_json({"status": "error", "message": str(e)}, 400)
+            return
+
         # 8. Final Award (Programmatic QCBS & OCDS Award Release)
         if parsed_path in ["/api/tender/award", "/api/record-award"]:
             if not state.tender_pda:

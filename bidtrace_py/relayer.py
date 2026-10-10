@@ -298,3 +298,20 @@ class BidTraceRelayerGateway:
             "winning_bid": winning_bid,
             "ocds_release": award_release
         }
+
+    def refund_disqualified_bond(
+        self,
+        tender_pda: str,
+        bidder_pubkey: str
+    ) -> Dict[str, Any]:
+        """
+        Sponsors transaction to refund escrowed bond to a technically disqualified bidder,
+        strictly maintaining Commercial Secrecy (Envelope B remains sealed forever).
+        """
+        bid = self.ledger.refund_disqualified_bond(tender_pda, bidder_pubkey)
+        return {
+            "bid": bid,
+            "tx_signature": f"tx_refund_{secrets.token_hex(16)}",
+            "fee_payer": self.fee_payer_wallet
+        }
+

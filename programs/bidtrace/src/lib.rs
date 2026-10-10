@@ -153,4 +153,9 @@ pub mod bidtrace {
     ) -> Result<()> {
         instructions::record_award_qcbs::handle_record_award_qcbs(ctx, rationale_hash)
     }
+
+    /// 11. Refund escrowed bond to technically disqualified bidder without unsealing Envelope B
+    pub fn refund_disqualified_bond(ctx: Context<RefundDisqualifiedBond>) -> Result<()> {
+        instructions::refund_disqualified_bond::handle_refund_disqualified_bond(ctx)
+    }
 }

@@ -565,6 +565,48 @@ class BidTraceLedger:
         self.save_state()
         return bid
 
+    def refund_disqualified_bond(
+        self,
+        tender_pda: str,
+        bidder_pubkey: str
+    ) -> dict:
+        """
+        Refunds the escrowed bond deposit for a technically disqualified bidder,
+        without unsealing Envelope B (Commercial Secrecy Invariant preserved).
+        """
+        if tender_pda not in self.tenders:
+            raise ValueError("TenderNotFound")
+        tender = self.tenders[tender_pda]
+
+        # Must be in FinancialEvaluation or Awarded status
+        if tender["status"] not in [TenderStatus.FinancialEvaluation, TenderStatus.AWARDED, "FinancialEvaluation", "Awarded"]:
+            raise ValueError(f"TenderNotFinancialEvaluation: Status is {tender['status']}")
+
+        bid_pda = self.derive_bid_pda(tender_pda, bidder_pubkey)
+        if bid_pda not in self.commitments:
+            raise ValueError("BidNotFound")
+        bid = self.commitments[bid_pda]
+
+        # ONLY technically disqualified bidders can use this instruction!
+        if bid.get("is_tech_qualified", False):
+            raise ValueError("BidderIsTechQualified: Bidder is qualified; Envelope B must be unsealed to settle bond")
+
+        if bid.get("is_bond_settled", False):
+            raise ValueError("BondAlreadySettled: Bond has already been settled")
+
+        if bid.get("bond_mode", BondMode.SolanaEscrow) != BondMode.SolanaEscrow:
+            raise ValueError("InvalidBondMode: Bond mode is not SolanaEscrow")
+
+        refund_amount = bid.get("bond_amount", bid.get("escrowed_deposit", 0))
+        if refund_amount <= 0:
+            raise ValueError("InsufficientDeposit: No escrowed deposit to refund")
+
+        bid["is_bond_settled"] = True
+        bid["escrowed_deposit"] = 0
+
+        self.save_state()
+        return bid
+
     def record_award_qcbs(
         self,
         tender_pda: str,

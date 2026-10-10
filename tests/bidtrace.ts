@@ -459,6 +459,73 @@ describe("BidTrace 3.0: Incorruptible Two-Envelope & Blinded Scoring Protocol", 
     assert.strictEqual(bidB.revealedPrice.toNumber(), 0);
   });
 
+  it("Test 7b (SEC-01 Fix): Disqualified Bidder B reclaims escrowed bond without leaking Envelope B", async () => {
+    // Check initial state of Bidder B
+    const bidBBefore = await program.account.dualBidCommitment.fetch(bidBPda);
+    assert.strictEqual(bidBBefore.isBondSettled, false);
+    assert.strictEqual(bidBBefore.isTechQualified, false);
+    assert.strictEqual(bidBBefore.isFinRevealed, false);
+    assert.strictEqual(bidBBefore.bondAmount.toNumber(), 1000);
+
+    // Qualified Bidder A attempts to call refundDisqualifiedBond -> must fail with BidderIsTechQualified!
+    try {
+      await program.methods
+        .refundDisqualifiedBond()
+        .accounts({
+          tender: tenderPda,
+          bidCommitment: bidAPda,
+          bidderRecipient: bidderA.publicKey,
+          caller: bidderA.publicKey,
+        })
+        .signers([bidderA])
+        .rpc();
+      assert.fail("Qualified bidder should NOT be allowed to call refundDisqualifiedBond!");
+    } catch (err: any) {
+      assert.ok(err.toString().includes("BidderIsTechQualified"));
+    }
+
+    // Balance before refund
+    const balBefore = await provider.connection.getBalance(bidderB.publicKey);
+
+    // Bidder B (or sponsored relayer) successfully executes refundDisqualifiedBond
+    await program.methods
+      .refundDisqualifiedBond()
+      .accounts({
+        tender: tenderPda,
+        bidCommitment: bidBPda,
+        bidderRecipient: bidderB.publicKey,
+        caller: authority.publicKey, // authority or sponsored relayer signs as caller
+      })
+      .rpc();
+
+    // Verify bond is settled
+    const bidBAfter = await program.account.dualBidCommitment.fetch(bidBPda);
+    assert.strictEqual(bidBAfter.isBondSettled, true);
+    // CRITICAL: Commercial Secrecy still 100% intact!
+    assert.strictEqual(bidBAfter.isFinRevealed, false);
+    assert.strictEqual(bidBAfter.revealedPrice.toNumber(), 0);
+
+    // Verify balance increased by bondAmount (1000 lamports)
+    const balAfter = await provider.connection.getBalance(bidderB.publicKey);
+    assert.strictEqual(balAfter - balBefore, 1000);
+
+    // Attempting double refund must fail with BondAlreadySettled!
+    try {
+      await program.methods
+        .refundDisqualifiedBond()
+        .accounts({
+          tender: tenderPda,
+          bidCommitment: bidBPda,
+          bidderRecipient: bidderB.publicKey,
+          caller: authority.publicKey,
+        })
+        .rpc();
+      assert.fail("Double refund must fail!");
+    } catch (err: any) {
+      assert.ok(err.toString().includes("BondAlreadySettled"));
+    }
+  });
+
   it("Test 8: Qualified Bidder A unseals Financial Envelope and wins QCBS Award", async () => {
     // 1. Bidder A legitimately reveals financial envelope
     await program.methods
