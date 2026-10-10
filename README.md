@@ -1,9 +1,14 @@
 # BidTrace: Cryptographic Deadline-Lock Protocol for Competitive Procurement
 
-[![Tests](https://img.shields.io/badge/tests-8%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-32%20passed-brightgreen.svg)]()
+[![Solana Integration](https://img.shields.io/badge/anchor--test-8%20passed-brightgreen.svg)]()
 [![Framework](https://img.shields.io/badge/Solana-Anchor%200.30-blue.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
+
+> **Master Technical & Hackathon Vetting Dossier:**  
+> For the complete, all-inclusive architectural specification, Anchor account layouts, cryptographic formulas, hybrid bond engine, and Colosseum audit rubric, see:  
+> 📄 **[`BIDTRACE_MASTER_DOSSIER.md`](file:///C:/Users/ujjwa/.gemini/antigravity/scratch/bidtrace/BIDTRACE_MASTER_DOSSIER.md)**
 
 BidTrace makes one critical procurement property mathematically and independently verifiable: **after the bid submission deadline, can any participant, auditor, or public monitor prove whether a specific bid belonged to the set of bids committed prior to the deadline, and whether the set of bids subsequently evaluated matches that frozen set without relying on trust in the procurement database?**
 
