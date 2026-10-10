@@ -204,6 +204,7 @@ class BidTraceRelayerGateway:
                 "amount": bond_amount,
                 "status": "ATTACHED"
             },
+            "whitelistProof": whitelist_proof or [],
             "issuedAt": get_iso_now()
         }
 

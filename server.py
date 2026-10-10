@@ -57,7 +57,11 @@ from bidtrace_py.ledger import (
     AdminStatus
 )
 from bidtrace_py.relayer import BidTraceRelayerGateway
-from bidtrace_py.verifier import verify_proof_bundle
+from bidtrace_py.verifier import (
+    verify_proof_bundle,
+    AirGappedTribunalVerifier,
+    export_tribunal_dossier
+)
 
 
 PORT = 8000
@@ -198,6 +202,23 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
                 "status": "ok",
                 "bonds": list_all_bonds()
             })
+            return
+
+        # 5. Tribunal Dossier Download
+        if parsed_path == "/api/tribunal/download_dossier":
+            dossier_path = os.path.join(os.path.dirname(__file__), "tribunal_dossier.zip")
+            if not os.path.exists(dossier_path):
+                self.send_json({"status": "error", "message": "No tribunal dossier generated yet. Call POST /api/tribunal/export_dossier first."}, 404)
+                return
+            with open(dossier_path, "rb") as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/zip')
+            self.send_header('Content-Length', str(len(content)))
+            self.send_header('Content-Disposition', 'attachment; filename="tribunal_dossier.zip"')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(content)
             return
 
         # Fallback to static files
@@ -720,6 +741,53 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
                     "raw_error": str(e),
                     "commercial_secrecy": "Financial envelope permanently sealed on-chain forever."
                 })
+            return
+
+        # ----------------------------------------------------------------------
+        # PHASE 4: TRIBUNAL DOSSIER PACKAGING & AIR-GAPPED VERIFICATION
+        # ----------------------------------------------------------------------
+        if parsed_path == "/api/tribunal/export_dossier":
+            if not state.tender_pda:
+                self.send_json({"status": "error", "message": "No active tender to package into dossier."}, 400)
+                return
+            out_path = data.get("output_path", os.path.join(os.path.dirname(__file__), "tribunal_dossier.zip"))
+            try:
+                res = export_tribunal_dossier(state.relayer, output_path=out_path, tender_pda=state.tender_pda)
+                self.send_json({
+                    "status": "ok",
+                    "filename": "tribunal_dossier.zip",
+                    "output_path": res["output_path"],
+                    "size_bytes": res["size_bytes"],
+                    "download_url": "/api/tribunal/download_dossier",
+                    "manifest": res["manifest"]
+                })
+            except Exception as e:
+                self.send_json({"status": "error", "message": str(e)}, 500)
+            return
+
+        if parsed_path in ["/api/tribunal/verify", "/api/verify-tribunal"]:
+            dossier_path = data.get("dossier_path", os.path.join(os.path.dirname(__file__), "tribunal_dossier.zip"))
+            if not os.path.exists(dossier_path) and state.tender_pda:
+                try:
+                    export_tribunal_dossier(state.relayer, output_path=dossier_path, tender_pda=state.tender_pda)
+                except Exception as e:
+                    self.send_json({"status": "error", "message": f"Auto-export dossier failed: {e}"}, 500)
+                    return
+
+            if not os.path.exists(dossier_path):
+                self.send_json({"status": "error", "message": f"Dossier file not found: {dossier_path}"}, 404)
+                return
+
+            try:
+                verifier = AirGappedTribunalVerifier(dossier_path)
+                audit_report = verifier.verify_all()
+                self.send_json({
+                    "status": "ok",
+                    "audit_report": audit_report,
+                    "terminal_output": verifier.format_cli_report(audit_report)
+                })
+            except Exception as e:
+                self.send_json({"status": "error", "message": str(e)}, 500)
             return
 
         # Standalone Offline Verification (Backwards Compatibility)

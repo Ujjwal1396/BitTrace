@@ -99,17 +99,19 @@ def issue_bank_guarantee_attestation(
     bidder_id: str,
     bidder_name: str,
     tender_id: str,
-    bank_name: str,
-    swift_bic: str,
-    guarantee_ref: str,
-    amount_usd: float,
-    beneficiary_entity: str,
-    expiry_date_iso: str
+    bank_name: str = "JPMorgan Chase Bank, N.A.",
+    swift_bic: str = "CHASUS33",
+    guarantee_ref: Optional[str] = None,
+    amount_usd: float = 190000.0,
+    beneficiary_entity: str = "Procuring Entity",
+    expiry_date_iso: str = "2026-12-31T23:59:59Z"
 ) -> Dict[str, Any]:
     """
     Issues a Digital Bank Guarantee / SWIFT MT760 Attestation (Mode 2).
     """
     attestation_id = f"BG-ATT-{secrets.token_hex(4).upper()}"
+    if not guarantee_ref:
+        guarantee_ref = f"BG-MT760-2026-{secrets.token_hex(4).upper()}"
     
     mt760_payload = {
         "swiftMessageType": "MT760",
@@ -160,9 +162,9 @@ def sign_bid_securing_declaration(
     bidder_id: str,
     bidder_name: str,
     tender_id: str,
-    procuring_entity: str,
-    signatory_name: str,
-    signatory_title: str,
+    procuring_entity: str = "Procuring Entity",
+    signatory_name: str = "Authorized Corporate Officer",
+    signatory_title: str = "Managing Director",
     sanction_period_months: int = 36
 ) -> Dict[str, Any]:
     """

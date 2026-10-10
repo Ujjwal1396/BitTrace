@@ -40,3 +40,9 @@ from .ledger import (
     AdminStatus
 )
 from .relayer import BidTraceRelayerGateway
+from .verifier import (
+    AirGappedTribunalVerifier,
+    export_tribunal_dossier,
+    verify_proof_bundle
+)
+

@@ -308,7 +308,8 @@ class BidTraceLedger:
             "bond_amount": bond_amount,
             "is_bond_settled": False,
             "escrowed_deposit": tender.get("bid_deposit", 0),
-            "revealed_amount": 0
+            "revealed_amount": 0,
+            "whitelist_proof": whitelist_proof or []
         }
 
         self.commitments[bid_pda] = bid_record
@@ -601,19 +602,23 @@ class BidTraceLedger:
         if not winning_bid["is_fin_revealed"]:
             raise ValueError("WinnerNotRevealed")
 
-        # Programmatic score calculation
-        if tender["evaluation_type"] == EvaluationType.LeastCost:
-            if winning_bid["revealed_price"] != tender["lowest_revealed_price"]:
-                raise ValueError("WinnerNotLowestPrice")
-            composite_score = 10000
-        else:
-            # QCBS 70/30
-            tech_part = (winning_bid["technical_score_bps"] * tender["tech_weight_bps"]) // 10000
-            fin_ratio = (tender["lowest_revealed_price"] * 10000) // winning_bid["revealed_price"]
-            fin_part = (fin_ratio * tender["fin_weight_bps"]) // 10000
-            composite_score = tech_part + fin_part
+        # Programmatic score calculation across all qualified and revealed bidders
+        for b_acc in self.commitments.values():
+            if (
+                b_acc.get("tender_pda") == tender_pda
+                and b_acc.get("is_tech_qualified")
+                and b_acc.get("is_fin_revealed")
+                and b_acc.get("revealed_price", 0) > 0
+            ):
+                if tender["evaluation_type"] == EvaluationType.LeastCost:
+                    b_acc["composite_score"] = 10000 if b_acc["revealed_price"] == tender["lowest_revealed_price"] else 0
+                else:
+                    tech_part = (b_acc["technical_score_bps"] * tender["tech_weight_bps"]) // 10000
+                    fin_ratio = (tender["lowest_revealed_price"] * 10000) // b_acc["revealed_price"]
+                    fin_part = (fin_ratio * tender["fin_weight_bps"]) // 10000
+                    b_acc["composite_score"] = tech_part + fin_part
 
-        winning_bid["composite_score"] = composite_score
+        composite_score = winning_bid["composite_score"]
         tender["highest_composite_score"] = composite_score
         tender["winning_bidder"] = winning_bidder_pubkey
         tender["status"] = TenderStatus.Awarded
