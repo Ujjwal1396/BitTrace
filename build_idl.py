@@ -426,7 +426,9 @@ def generate_idl():
             {"code": 6039, "name": "TechEvalDeadlineNotReached", "msg": "Technical evaluation deadline has not been reached yet."},
             {"code": 6040, "name": "ZeroPriceNotAllowed", "msg": "Revealed price cannot be zero."},
             {"code": 6041, "name": "MissingCompetingBids", "msg": "All competing revealed bids must be provided for award validation."},
-            {"code": 6042, "name": "InvalidCompetingBid", "msg": "Invalid competing bid account provided."}
+            {"code": 6042, "name": "InvalidCompetingBid", "msg": "Invalid competing bid account provided."},
+            {"code": 6043, "name": "IncompleteCommitteeGrades", "msg": "Committee roster is incomplete: all accredited evaluator grades must be submitted."},
+            {"code": 6044, "name": "EmptyTrimmedScorePool", "msg": "Severe variance dropped all evaluator scores: empty trimmed score pool."}
         ]
     }
 

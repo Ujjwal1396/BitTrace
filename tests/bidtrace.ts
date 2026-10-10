@@ -411,6 +411,53 @@ describe("BidTrace 3.0: Incorruptible Two-Envelope & Blinded Scoring Protocol", 
   });
 
   it("Test 6: On-chain Olympic Trimmed Mean flags Rogue Evaluator & Qualifies Bidder A while Disqualifying Bidder B", async () => {
+    // SEC-05: Evaluator Cherry-Picking Rejection (3 of 5 and 4 of 5 grades submitted)
+    try {
+      await program.methods
+        .finalizeTechnicalScores()
+        .accounts({
+          tender: tenderPda,
+          committee: committeePda,
+          bidCommitment: bidBPda,
+          authority: authority.publicKey,
+        })
+        .remainingAccounts(gradesB.slice(0, 3).map(g => ({
+          pubkey: g.pda,
+          isWritable: true,
+          isSigner: false,
+        })))
+        .rpc();
+      assert.fail("Should have failed with IncompleteCommitteeGrades (3 of 5)");
+    } catch (err: any) {
+      assert.ok(
+        err.toString().includes("IncompleteCommitteeGrades") || err.toString().includes("6043"),
+        `Expected IncompleteCommitteeGrades, got: ${err}`
+      );
+    }
+
+    try {
+      await program.methods
+        .finalizeTechnicalScores()
+        .accounts({
+          tender: tenderPda,
+          committee: committeePda,
+          bidCommitment: bidBPda,
+          authority: authority.publicKey,
+        })
+        .remainingAccounts(gradesB.slice(0, 4).map(g => ({
+          pubkey: g.pda,
+          isWritable: true,
+          isSigner: false,
+        })))
+        .rpc();
+      assert.fail("Should have failed with IncompleteCommitteeGrades (4 of 5)");
+    } catch (err: any) {
+      assert.ok(
+        err.toString().includes("IncompleteCommitteeGrades") || err.toString().includes("6043"),
+        `Expected IncompleteCommitteeGrades, got: ${err}`
+      );
+    }
+
     // 1. Finalize Bidder B scores
     await program.methods
       .finalizeTechnicalScores()
@@ -973,4 +1020,271 @@ describe("BidTrace 3.0: Incorruptible Two-Envelope & Blinded Scoring Protocol", 
     const competingBidAccount = await program.account.dualBidCommitment.fetch(b2Pda);
     assert.strictEqual(competingBidAccount.compositeScore.toNumber(), 8460);
   });
+
+  it("Test 8c (SEC-05 Fix): Committee Inclusivity, Zero-Median Variance Floor & Empty Trimmed Pool Revert", async () => {
+    const sec05TenderId = `TENDER-SEC05-${Math.floor(Math.random() * 100000)}`;
+    const [tenderSec05Pda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("tender"), authority.publicKey.toBuffer(), Buffer.from(sec05TenderId)],
+      program.programId
+    );
+    const [commSec05Pda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("committee"), tenderSec05Pda.toBuffer()],
+      program.programId
+    );
+
+    const bPolarKeypair = anchor.web3.Keypair.generate();
+    const bZeroKeypair = anchor.web3.Keypair.generate();
+
+    const [bPolarPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("bid"), tenderSec05Pda.toBuffer(), bPolarKeypair.publicKey.toBuffer()],
+      program.programId
+    );
+    const [bZeroPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("bid"), tenderSec05Pda.toBuffer(), bZeroKeypair.publicKey.toBuffer()],
+      program.programId
+    );
+
+    // Fund bidders
+    await provider.connection.confirmTransaction(
+      await provider.connection.requestAirdrop(bPolarKeypair.publicKey, 1000000000),
+      "confirmed"
+    );
+    await provider.connection.confirmTransaction(
+      await provider.connection.requestAirdrop(bZeroKeypair.publicKey, 1000000000),
+      "confirmed"
+    );
+
+    const curSlot = await provider.connection.getSlot();
+    const sec05SubSlot = new anchor.BN(curSlot + 6);
+    const sec05AdminSlot = sec05SubSlot;
+    const sec05TechSlot = new anchor.BN(curSlot + 25);
+    const sec05FinSlot = new anchor.BN(curSlot + 100);
+
+    const noticeHash = crypto.createHash("sha256").update(Buffer.from("NOTICE_SEC05")).digest();
+
+    await program.methods
+      .initializeTender(
+        sec05TenderId,
+        Array.from(noticeHash),
+        { postQualifiedOpen: {} },
+        { qcbs: {} },
+        sec05SubSlot,
+        sec05AdminSlot,
+        sec05TechSlot,
+        sec05FinSlot,
+        Array.from(Buffer.alloc(32)),
+        7500,
+        7000,
+        3000
+      )
+      .accounts({
+        tender: tenderSec05Pda,
+        authority: authority.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    // 4 evaluators, max_variance_bps = 2000 (20%)
+    const ev4 = evaluators.slice(0, 4);
+    await program.methods
+      .initializeCommittee(
+        ev4.map(e => e.publicKey),
+        2000
+      )
+      .accounts({
+        tender: tenderSec05Pda,
+        committee: commSec05Pda,
+        authority: authority.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    // Commit bids
+    const sTechP = crypto.randomBytes(32);
+    const pHashP = crypto.createHash("sha256").update(Buffer.from("PROP_POLAR")).digest();
+    const cTechP = computeTechCommitment(tenderSec05Pda, bPolarKeypair.publicKey, sTechP, pHashP);
+    const cFinP = computeFinCommitment(tenderSec05Pda, bPolarKeypair.publicKey, crypto.randomBytes(32), new anchor.BN(4000000), crypto.randomBytes(32));
+
+    const sTechZ = crypto.randomBytes(32);
+    const pHashZ = crypto.createHash("sha256").update(Buffer.from("PROP_ZERO")).digest();
+    const cTechZ = computeTechCommitment(tenderSec05Pda, bZeroKeypair.publicKey, sTechZ, pHashZ);
+    const cFinZ = computeFinCommitment(tenderSec05Pda, bZeroKeypair.publicKey, crypto.randomBytes(32), new anchor.BN(4000000), crypto.randomBytes(32));
+
+    await program.methods
+      .commitDualBid(Array.from(Buffer.alloc(32)), Array.from(cTechP), Array.from(cFinP), { solanaEscrow: {} }, new anchor.BN(100), null)
+      .accounts({
+        tender: tenderSec05Pda,
+        bidCommitment: bPolarPda,
+        bidder: bPolarKeypair.publicKey,
+        feePayer: authority.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([bPolarKeypair])
+      .rpc();
+
+    await program.methods
+      .commitDualBid(Array.from(Buffer.alloc(32)), Array.from(cTechZ), Array.from(cFinZ), { solanaEscrow: {} }, new anchor.BN(100), null)
+      .accounts({
+        tender: tenderSec05Pda,
+        bidCommitment: bZeroPda,
+        bidder: bZeroKeypair.publicKey,
+        feePayer: authority.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([bZeroKeypair])
+      .rpc();
+
+    // Wait past submission deadline
+    while ((await provider.connection.getSlot()) <= sec05SubSlot.toNumber()) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    // Advance to TechnicalEvaluation
+    await program.methods
+      .advanceTenderPhase()
+      .accounts({ tender: tenderSec05Pda, caller: authority.publicKey })
+      .rpc();
+
+    // Reveal Technical
+    await program.methods
+      .revealTechnicalBid(Array.from(sTechP), Array.from(pHashP))
+      .accounts({ tender: tenderSec05Pda, bidCommitment: bPolarPda, revealer: bPolarKeypair.publicKey })
+      .signers([bPolarKeypair])
+      .rpc();
+
+    await program.methods
+      .revealTechnicalBid(Array.from(sTechZ), Array.from(pHashZ))
+      .accounts({ tender: tenderSec05Pda, bidCommitment: bZeroPda, revealer: bZeroKeypair.publicKey })
+      .signers([bZeroKeypair])
+      .rpc();
+
+    // Evaluators grade bPolar with polarized scores: 1000, 1000, 9000, 9000
+    // Evaluators grade bZero with zero scores: 0, 0, 0, 0
+    const polarGrades: { pda: anchor.web3.PublicKey }[] = [];
+    const zeroGrades: { pda: anchor.web3.PublicKey }[] = [];
+
+    const polarSubs: [number, number, number, number, number][] = [
+      [200, 200, 200, 200, 200],   // 1000
+      [200, 200, 200, 200, 200],   // 1000
+      [1800, 1800, 1800, 1800, 1800], // 9000
+      [1800, 1800, 1800, 1800, 1800], // 9000
+    ];
+
+    for (let i = 0; i < 4; i++) {
+      const ev = ev4[i];
+      const s1 = crypto.randomBytes(32);
+      const j1 = crypto.createHash("sha256").update(Buffer.from(`JP_${i}`)).digest();
+      const comm1 = computeGradeCommitment(tenderSec05Pda, bPolarKeypair.publicKey, ev.publicKey, s1, polarSubs[i], j1);
+      const [g1Pda] = anchor.web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("grade"), tenderSec05Pda.toBuffer(), ev.publicKey.toBuffer(), bPolarKeypair.publicKey.toBuffer()],
+        program.programId
+      );
+      polarGrades.push({ pda: g1Pda });
+
+      await program.methods
+        .commitEvaluatorGrade(Array.from(comm1))
+        .accounts({
+          tender: tenderSec05Pda,
+          committee: commSec05Pda,
+          bidCommitment: bPolarPda,
+          evaluatorGrade: g1Pda,
+          evaluator: ev.publicKey,
+          bidder: bPolarKeypair.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([ev])
+        .rpc();
+
+      await program.methods
+        .revealEvaluatorGrade(polarSubs[i], Array.from(s1), Array.from(j1))
+        .accounts({
+          tender: tenderSec05Pda,
+          committee: commSec05Pda,
+          evaluatorGrade: g1Pda,
+          evaluator: ev.publicKey,
+          bidder: bPolarKeypair.publicKey,
+        })
+        .signers([ev])
+        .rpc();
+
+      // Zero grades
+      const s0 = crypto.randomBytes(32);
+      const j0 = crypto.createHash("sha256").update(Buffer.from(`JZ_${i}`)).digest();
+      const zeroSub: [number, number, number, number, number] = [0, 0, 0, 0, 0];
+      const comm0 = computeGradeCommitment(tenderSec05Pda, bZeroKeypair.publicKey, ev.publicKey, s0, zeroSub, j0);
+      const [g0Pda] = anchor.web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("grade"), tenderSec05Pda.toBuffer(), ev.publicKey.toBuffer(), bZeroKeypair.publicKey.toBuffer()],
+        program.programId
+      );
+      zeroGrades.push({ pda: g0Pda });
+
+      await program.methods
+        .commitEvaluatorGrade(Array.from(comm0))
+        .accounts({
+          tender: tenderSec05Pda,
+          committee: commSec05Pda,
+          bidCommitment: bZeroPda,
+          evaluatorGrade: g0Pda,
+          evaluator: ev.publicKey,
+          bidder: bZeroKeypair.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([ev])
+        .rpc();
+
+      await program.methods
+        .revealEvaluatorGrade(zeroSub, Array.from(s0), Array.from(j0))
+        .accounts({
+          tender: tenderSec05Pda,
+          committee: commSec05Pda,
+          evaluatorGrade: g0Pda,
+          evaluator: ev.publicKey,
+          bidder: bZeroKeypair.publicKey,
+        })
+        .signers([ev])
+        .rpc();
+    }
+
+    // 1. Cherry-Picking test: Omitting 1 evaluator (submitting 3 of 4) must fail with IncompleteCommitteeGrades
+    try {
+      await program.methods
+        .finalizeTechnicalScores()
+        .accounts({ tender: tenderSec05Pda, committee: commSec05Pda, bidCommitment: bPolarPda, authority: authority.publicKey })
+        .remainingAccounts(polarGrades.slice(0, 3).map(g => ({ pubkey: g.pda, isWritable: true, isSigner: false })))
+        .rpc();
+      assert.fail("Should have failed with IncompleteCommitteeGrades");
+    } catch (err: any) {
+      assert.ok(
+        err.toString().includes("IncompleteCommitteeGrades") || err.toString().includes("6043"),
+        `Expected IncompleteCommitteeGrades, got: ${err}`
+      );
+    }
+
+    // 2. Empty Trimmed Pool Revert: Polarized grades drop both middle elements -> EmptyTrimmedScorePool
+    try {
+      await program.methods
+        .finalizeTechnicalScores()
+        .accounts({ tender: tenderSec05Pda, committee: commSec05Pda, bidCommitment: bPolarPda, authority: authority.publicKey })
+        .remainingAccounts(polarGrades.map(g => ({ pubkey: g.pda, isWritable: true, isSigner: false })))
+        .rpc();
+      assert.fail("Should have failed with EmptyTrimmedScorePool");
+    } catch (err: any) {
+      assert.ok(
+        err.toString().includes("EmptyTrimmedScorePool") || err.toString().includes("6044"),
+        `Expected EmptyTrimmedScorePool, got: ${err}`
+      );
+    }
+
+    // 3. Zero-Median Variance Floor: All 0 grades evaluated with 100 bps floor -> no panic, trimmed mean = 0
+    await program.methods
+      .finalizeTechnicalScores()
+      .accounts({ tender: tenderSec05Pda, committee: commSec05Pda, bidCommitment: bZeroPda, authority: authority.publicKey })
+      .remainingAccounts(zeroGrades.map(g => ({ pubkey: g.pda, isWritable: true, isSigner: false })))
+      .rpc();
+
+    const fetchBZero = await program.account.dualBidCommitment.fetch(bZeroPda);
+    assert.strictEqual(fetchBZero.technicalScoreBps, 0);
+    assert.strictEqual(fetchBZero.isTechQualified, false);
+  });
 });
+

@@ -694,9 +694,14 @@ class AirGappedTribunalVerifier:
                 errors.append(f"Bidder {bidder_pk} has only {n} revealed evaluator grades (minimum 3 required)")
                 continue
 
+            if len(evaluators) > 0 and n != len(evaluators):
+                errors.append(f"Incomplete committee evaluation for bidder {bidder_pk}: expected {len(evaluators)} grades, found {n}")
+                continue
+
             scores = sorted([g["total_score_bps"] for g in grades])
             median = scores[n // 2] if n % 2 == 1 else (scores[n // 2 - 1] + scores[n // 2]) // 2
-            max_delta = (median * max_variance_bps) // 10000
+            raw_delta = (median * max_variance_bps) // 10000
+            max_delta = max(raw_delta, 100)
 
             # Detect outliers
             expected_outliers = []
@@ -714,10 +719,14 @@ class AirGappedTribunalVerifier:
             # Recompute Olympic trimmed mean
             if n >= 4:
                 accepted = [s for s in scores[1:-1] if abs(s - median) <= max_delta]
-                expected_final_score = sum(accepted) // len(accepted) if accepted else median
             else:
                 accepted = [s for s in scores if abs(s - median) <= max_delta]
-                expected_final_score = sum(accepted) // len(accepted) if accepted else median
+
+            if not accepted:
+                errors.append(f"Empty trimmed score pool for bidder {bidder_pk}: severe variance dropped all evaluator scores")
+                continue
+
+            expected_final_score = sum(accepted) // len(accepted)
 
             expected_is_qualified = (expected_final_score >= min_tech_score_bps)
 

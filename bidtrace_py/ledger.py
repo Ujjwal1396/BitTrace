@@ -501,11 +501,21 @@ class BidTraceLedger:
         if len(grades) < 3:
             raise ValueError(f"InsufficientEvaluatorGrades: Required >= 3, found {len(grades)}")
 
+        if comm:
+            expected_evaluators = set(comm.get("evaluators", []))
+            actual_evaluators = {g["evaluator"] for g in grades}
+            if len(grades) != len(comm.get("evaluators", [])) or actual_evaluators != expected_evaluators:
+                raise ValueError(
+                    f"IncompleteCommitteeGrades: Committee roster completeness required ({len(grades)} / {len(comm.get('evaluators', []))} submitted)"
+                )
+
         n = len(grades)
         scores = sorted([g["total_score_bps"] for g in grades])
 
         median = scores[n // 2] if n % 2 == 1 else (scores[n // 2 - 1] + scores[n // 2]) // 2
-        max_delta = (median * (comm["max_variance_bps"] if comm else 2000)) // 10000
+        raw_delta = (median * (comm["max_variance_bps"] if comm else 2000)) // 10000
+        # Minimum variance threshold floor of 100 bps (1.00%) guards zero-median division / panic
+        max_delta = max(raw_delta, 100)
 
         # Mark outliers
         outlier_count = 0
@@ -521,10 +531,14 @@ class BidTraceLedger:
         if n >= 4:
             # scores[1..n-1]
             accepted = [s for s in scores[1:-1] if abs(s - median) <= max_delta]
-            final_score = sum(accepted) // len(accepted) if accepted else median
+            if not accepted:
+                raise ValueError("EmptyTrimmedScorePool: Severe variance dropped all evaluator scores")
+            final_score = sum(accepted) // len(accepted)
         else:
             accepted = [s for s in scores if abs(s - median) <= max_delta]
-            final_score = sum(accepted) // len(accepted) if accepted else median
+            if not accepted:
+                raise ValueError("EmptyTrimmedScorePool: Severe variance dropped all evaluator scores")
+            final_score = sum(accepted) // len(accepted)
 
         bid["technical_score_bps"] = final_score
         is_qualified = (final_score >= tender["min_tech_score_bps"])

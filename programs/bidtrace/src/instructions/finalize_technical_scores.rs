@@ -39,6 +39,10 @@ pub fn handle_finalize_technical_scores<'info>(
         remaining.len() >= 3,
         BidTraceError::InsufficientEvaluatorGrades
     );
+    require!(
+        remaining.len() == committee.evaluators.len(),
+        BidTraceError::IncompleteCommitteeGrades
+    );
 
     // 1. Parse and validate all submitted EvaluatorGrade accounts
     struct GradeEntry {
@@ -91,7 +95,9 @@ pub fn handle_finalize_technical_scores<'info>(
         (scores[n / 2 - 1] + scores[n / 2]) / 2
     };
 
-    let max_allowed_delta = (median * committee.max_variance_bps as u32) / 10000;
+    // Minimum variance threshold floor of 100 bps (1.00%) guards zero-median division / panic
+    let raw_delta = (median * committee.max_variance_bps as u32) / 10000;
+    let max_allowed_delta = raw_delta.max(100);
 
     // 3. Mark outliers in account state
     let mut outlier_count = 0;
@@ -125,12 +131,9 @@ pub fn handle_finalize_technical_scores<'info>(
             }
         }
 
-        if accepted.is_empty() {
-            median
-        } else {
-            let sum: u32 = accepted.iter().sum();
-            sum / accepted.len() as u32
-        }
+        require!(!accepted.is_empty(), BidTraceError::EmptyTrimmedScorePool);
+        let sum: u32 = accepted.iter().sum();
+        sum / accepted.len() as u32
     } else {
         // N == 3: filter outliers
         let mut accepted: Vec<u32> = Vec::new();
@@ -140,12 +143,9 @@ pub fn handle_finalize_technical_scores<'info>(
                 accepted.push(s);
             }
         }
-        if accepted.is_empty() {
-            median
-        } else {
-            let sum: u32 = accepted.iter().sum();
-            sum / accepted.len() as u32
-        }
+        require!(!accepted.is_empty(), BidTraceError::EmptyTrimmedScorePool);
+        let sum: u32 = accepted.iter().sum();
+        sum / accepted.len() as u32
     };
 
     let final_score_bps = final_score as u16;

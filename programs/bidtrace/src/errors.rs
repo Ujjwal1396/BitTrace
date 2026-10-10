@@ -130,5 +130,12 @@ pub enum BidTraceError {
 
     #[msg("Invalid competing bid account provided.")]
     InvalidCompetingBid,
+
+    #[msg("Committee roster is incomplete: all accredited evaluator grades must be submitted.")]
+    IncompleteCommitteeGrades,
+
+    #[msg("Severe variance dropped all evaluator scores: empty trimmed score pool.")]
+    EmptyTrimmedScorePool,
 }
+
 
