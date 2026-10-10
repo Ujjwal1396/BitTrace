@@ -1251,15 +1251,23 @@
     async function revealAllQualifiedFinBids() {
       logMessage("Unsealing Envelope B (Financial proposals) for qualified contractors...", "normal");
       try {
+        const reveals = localReceipts.map(r => ({
+          bidder_pubkey: r.bidderPubkey,
+          salt_fin: r.unsealingPreimages ? r.unsealingPreimages.saltFin : r.salt_hex,
+          price: r.unsealingPreimages ? r.unsealingPreimages.price : r.bid_amount,
+          boq_hash: r.unsealingPreimages ? r.unsealingPreimages.boqHash : r.ciphertext_hash_hex
+        }));
         const res = await fetch("/api/bid/reveal_financial", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({})
+          body: JSON.stringify({ reveals })
         });
         const data = await res.json();
         if (data.status === "ok") {
           logMessage(`>>> Financial opening complete! ${data.revealed ? data.revealed.length : 0} qualified bids unsealed.`, "success");
           await refreshStatus();
+        } else {
+          logMessage(`Financial reveal failed: ${data.message}`, "error");
         }
       } catch (err) {
         logMessage(`Reveal error: ${err.message}`, "error");
@@ -1370,24 +1378,34 @@
 
       // Stage 2: Dual Bids with Hybrid Bonds
       document.getElementById("step-2-pill").className = "p-2 rounded bg-cyan-600/30 border border-cyan-500 text-cyan-300 text-center font-mono font-bold";
+      localReceipts = [];
       // Bid 1: ACME ($3.80M)
-      await fetch("/api/bid/commit_dual", {
+      const res1 = await fetch("/api/bid/commit_dual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bidder_name: "ACME Infrastructure Corp", price: 3800000, bond_mode: 1, bond_amount: 190000 })
       });
+      const d1 = await res1.json();
+      if (d1.receipt) localReceipts.push(d1.receipt);
+
       // Bid 2: Apex ($4.10M)
-      await fetch("/api/bid/commit_dual", {
+      const res2 = await fetch("/api/bid/commit_dual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bidder_name: "Apex Civil Engineering", price: 4100000, bond_mode: 2, bond_amount: 190000 })
       });
+      const d2 = await res2.json();
+      if (d2.receipt) localReceipts.push(d2.receipt);
+
       // Bid 3: Rogue ($2.90M)
-      await fetch("/api/bid/commit_dual", {
+      const res3 = await fetch("/api/bid/commit_dual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bidder_name: "Rogue Non-Compliant Builder", price: 2900000, bond_mode: 3, bond_amount: 190000 })
       });
+      const d3 = await res3.json();
+      if (d3.receipt) localReceipts.push(d3.receipt);
+
       logMessage("Committed 3 Dual-Envelope Bids with TradFi Surety, MT760 BG, and BSD.", "success");
       await new Promise(r => setTimeout(r, 600));
 
@@ -1441,7 +1459,18 @@
 
     async function apiAttackTamperPrice() {
       logMessage("Adversary executing Attack 3: Altering revealed quotation price by -$500,000...", "warning");
-      const res = await fetch("/api/attack/tamper_price", { method: "POST" });
+      const target = localReceipts[0];
+      const payload = target && target.unsealingPreimages ? {
+        bidder_pubkey: target.bidderPubkey,
+        salt_fin: target.unsealingPreimages.saltFin,
+        price: target.unsealingPreimages.price,
+        boq_hash: target.unsealingPreimages.boqHash
+      } : {};
+      const res = await fetch("/api/attack/tamper_price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
       const data = await res.json();
       logMessage(`>>> DEFENSE RESULT: ${data.status.toUpperCase()}! ${data.error_type} - Cryptographic hash check failed.`, "error");
     }

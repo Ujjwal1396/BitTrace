@@ -35,6 +35,7 @@ class BidTraceRelayerGateway:
     """
     def __init__(self, state_file: Optional[str] = None):
         self.ledger = BidTraceLedger(state_file)
+        self.ledger.on_fin_reveal = self._on_fin_reveal
         self.fee_payer_wallet = "GFRRqHMPekLkEUPDzwLXnBoETUU1EFrfFoZxiCWUwSzU"
         self.program_id = "x3iSm5BCoXvEfNwT6m6Vs7ApBJtKjvuTm7qKBJtESjZ"
         self.active_tender_pda: Optional[str] = None
@@ -42,8 +43,28 @@ class BidTraceRelayerGateway:
         
         # OCDS 1.1 releases store for auditor verification
         self.ocds_releases: Dict[str, Dict[str, Any]] = {}
-        # Bidder receipts store
+        # Bidder receipts store (Envelope B sealed to uphold Commercial Secrecy Invariant)
         self.bidder_receipts: Dict[str, Dict[str, Any]] = {}
+
+    def _on_fin_reveal(
+        self,
+        tender_pda: str,
+        bidder_pubkey: str,
+        salt_fin: str,
+        price: int,
+        boq_hash: str
+    ):
+        """
+        Invoked exclusively upon successful on-chain financial unsealing
+        for a technically qualified bidder. Updates the public audit receipt.
+        """
+        if bidder_pubkey in self.bidder_receipts:
+            r = self.bidder_receipts[bidder_pubkey]
+            if "unsealingPreimages" in r:
+                r["unsealingPreimages"]["saltFin"] = salt_fin
+                r["unsealingPreimages"]["price"] = price
+                r["unsealingPreimages"]["boqHash"] = boq_hash
+                r["unsealingPreimages"].pop("secrecyNotice", None)
 
     def create_tender(
         self,
@@ -149,22 +170,38 @@ class BidTraceRelayerGateway:
         bidder_pubkey: str,
         bidder_name: str,
         admin_dossier_hash: str,
-        salt_tech: str,
-        proposal_hash: str,
-        salt_fin: str,
-        price: int,
-        boq_hash: str,
-        bond_mode: int,
-        bond_amount: int,
+        salt_tech: Optional[str] = None,
+        proposal_hash: Optional[str] = None,
+        salt_fin: Optional[str] = None,
+        price: Optional[int] = None,
+        boq_hash: Optional[str] = None,
+        bond_mode: int = 1,
+        bond_amount: int = 0,
         bond_record: Optional[Dict[str, Any]] = None,
-        whitelist_proof: Optional[List[str]] = None
+        whitelist_proof: Optional[List[str]] = None,
+        tech_commitment_hash: Optional[str] = None,
+        fin_commitment_hash: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Calculates domain-separated commitments, commits onto Anchor ledger,
-        and generates a portable, air-gapped bidder_receipt.json.
+        Supports Zero-Knowledge Blind Intake where precomputed commitment hashes
+        are ingested directly, preserving Commercial Secrecy.
+        Server memory strictly seals Envelope B until legitimate on-chain unsealing.
         """
-        comm_tech = compute_tech_commitment(tender_pda, bidder_pubkey, salt_tech, proposal_hash).hex()
-        comm_fin = compute_fin_commitment(tender_pda, bidder_pubkey, salt_fin, price, boq_hash).hex()
+        # Resolve Envelope A commitment
+        if tech_commitment_hash:
+            comm_tech = tech_commitment_hash
+        elif salt_tech is not None and proposal_hash is not None:
+            comm_tech = compute_tech_commitment(tender_pda, bidder_pubkey, salt_tech, proposal_hash).hex()
+        else:
+            raise ValueError("Missing Envelope A commitments: provide tech_commitment_hash or (salt_tech, proposal_hash)")
+
+        # Resolve Envelope B commitment
+        if fin_commitment_hash:
+            comm_fin = fin_commitment_hash
+        elif salt_fin is not None and price is not None and boq_hash is not None:
+            comm_fin = compute_fin_commitment(tender_pda, bidder_pubkey, salt_fin, price, boq_hash).hex()
+        else:
+            raise ValueError("Missing Envelope B commitments: provide fin_commitment_hash or (salt_fin, price, boq_hash)")
 
         bid_acc = self.ledger.commit_dual_bid(
             tender_pda=tender_pda,
@@ -177,8 +214,8 @@ class BidTraceRelayerGateway:
             whitelist_proof=whitelist_proof
         )
 
-        # Generate Portable Air-Gapped Receipt
-        receipt = {
+        # Server-side stored receipt strictly seals Envelope B to preserve Commercial Secrecy
+        server_receipt = {
             "version": "3.0.0",
             "receiptId": f"RECEIPT-{secrets.token_hex(6).upper()}",
             "tenderPda": tender_pda,
@@ -193,11 +230,12 @@ class BidTraceRelayerGateway:
                 "finCommitmentHash": comm_fin
             },
             "unsealingPreimages": {
-                "saltTech": salt_tech,
-                "proposalHash": proposal_hash,
-                "saltFin": salt_fin,
-                "price": price,
-                "boqHash": boq_hash
+                "saltTech": salt_tech or "",
+                "proposalHash": proposal_hash or "",
+                "saltFin": "SEALED_COMMERCIAL_SECRECY_PRESERVED",
+                "price": 0,
+                "boqHash": "SEALED_COMMERCIAL_SECRECY_PRESERVED",
+                "secrecyNotice": "Protected under Solana Smart Contract Commercial Secrecy Invariant"
             },
             "bond": bond_record or {
                 "mode": bond_mode,
@@ -208,10 +246,21 @@ class BidTraceRelayerGateway:
             "issuedAt": get_iso_now()
         }
 
-        self.bidder_receipts[bidder_pubkey] = receipt
+        # Relayer memory stores exclusively the sealed receipt
+        self.bidder_receipts[bidder_pubkey] = server_receipt
+
+        # Air-gapped client receipt for submitting bidder's local retention
+        client_receipt = json.loads(json.dumps(server_receipt))
+        if salt_fin is not None and price is not None and boq_hash is not None:
+            client_receipt["unsealingPreimages"]["saltFin"] = salt_fin
+            client_receipt["unsealingPreimages"]["price"] = price
+            client_receipt["unsealingPreimages"]["boqHash"] = boq_hash
+            client_receipt["unsealingPreimages"].pop("secrecyNotice", None)
+
         return {
             "bid": bid_acc,
-            "receipt": receipt
+            "receipt": client_receipt,
+            "server_receipt": server_receipt
         }
 
     def finalize_technical_evaluation(

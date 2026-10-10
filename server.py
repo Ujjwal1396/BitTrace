@@ -77,6 +77,19 @@ class ServerState:
         self.authority = generate_keypair()
         self.bidders_receipts: List[Dict[str, Any]] = []
 
+        # Synchronize unsealed financial keys only when legitimately revealed on-chain
+        orig_on_reveal = self.relayer._on_fin_reveal
+        def _sync_on_reveal(tender_pda, bidder_pubkey, salt_fin, price, boq_hash):
+            orig_on_reveal(tender_pda, bidder_pubkey, salt_fin, price, boq_hash)
+            for r in self.bidders_receipts:
+                if r.get("bidderPubkey") == bidder_pubkey:
+                    p_img = r.setdefault("unsealingPreimages", {})
+                    p_img["saltFin"] = salt_fin
+                    p_img["price"] = price
+                    p_img["boqHash"] = boq_hash
+                    p_img.pop("secrecyNotice", None)
+        self.relayer.ledger.on_fin_reveal = _sync_on_reveal
+
     @property
     def ledger(self) -> BidTraceLedger:
         return self.relayer.ledger
@@ -428,17 +441,33 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
             bidder_name = data.get("name", data.get("bidder_name", "ACME Infrastructure Corp"))
             bidder_kp = generate_keypair()
             bidder_pubkey = data.get("bidder_pubkey", bidder_kp["public_key"])
-            price = int(data.get("amount", data.get("price", 3800000)))
 
-            # Technical Proposal Preimages (Envelope A)
-            salt_tech = data.get("salt_tech", secrets.token_hex(32))
+            # Direct Blind Commitment Hashes (Zero-Knowledge Intake)
+            tech_commitment_hash = data.get("tech_commitment_hash")
+            fin_commitment_hash = data.get("fin_commitment_hash")
+
+            # Technical Proposal Preimages (Envelope A fallback if hash not precomputed)
+            salt_tech = data.get("salt_tech", secrets.token_hex(32) if not tech_commitment_hash else None)
             specs_text = data.get("specs", f"High-durability structural specifications for {bidder_name}")
-            proposal_hash = data.get("proposal_hash", hashlib.sha256(specs_text.encode('utf-8')).hexdigest())
+            proposal_hash = data.get("proposal_hash", hashlib.sha256(specs_text.encode('utf-8')).hexdigest() if not tech_commitment_hash else None)
 
-            # Financial Proposal Preimages (Envelope B)
-            salt_fin = data.get("salt_fin", secrets.token_hex(32))
-            boq_text = data.get("boq_schedule", f"BOQ_SCHEDULE_USD_{price}_{bidder_name}")
-            boq_hash = data.get("boq_hash", hashlib.sha256(boq_text.encode('utf-8')).hexdigest())
+            # Financial Proposal Preimages (Envelope B fallback if hash not precomputed)
+            salt_fin = data.get("salt_fin")
+            price = data.get("amount", data.get("price"))
+            boq_hash = data.get("boq_hash")
+
+            if not fin_commitment_hash and (salt_fin is None or price is None or boq_hash is None):
+                if salt_fin is None:
+                    salt_fin = secrets.token_hex(32)
+                if price is None:
+                    price = 3800000
+                else:
+                    price = int(price)
+                if boq_hash is None:
+                    boq_text = data.get("boq_schedule", f"BOQ_SCHEDULE_USD_{price}_{bidder_name}")
+                    boq_hash = hashlib.sha256(boq_text.encode('utf-8')).hexdigest()
+            elif price is not None:
+                price = int(price)
 
             # Administrative Dossier (Model B)
             admin_dossier_text = data.get("admin_dossier", f"TAX_AUDIT_ISO_CLEARANCE_{bidder_name}")
@@ -464,13 +493,16 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
                     bond_mode=bond_mode_int,
                     bond_amount=bond_amount,
                     bond_record=bond_record,
-                    whitelist_proof=whitelist_proof
+                    whitelist_proof=whitelist_proof,
+                    tech_commitment_hash=tech_commitment_hash,
+                    fin_commitment_hash=fin_commitment_hash
                 )
-                state.bidders_receipts.append(res["receipt"])
+                state.bidders_receipts.append(res["server_receipt"])
                 self.send_json({
                     "status": "ok",
                     "bid": res["bid"],
                     "receipt": res["receipt"],
+                    "server_receipt": res["server_receipt"],
                     "total_committed": state.ledger.tenders[state.tender_pda]["total_committed"]
                 })
             except Exception as e:
@@ -585,19 +617,27 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_json({"status": "error", "message": str(e)}, code)
                 return
 
-            # Batch reveal for all receipts in memory
-            revealed_list = []
-            for r in state.bidders_receipts:
-                p_img = r.get("unsealingPreimages", {})
-                salt_fin = p_img.get("saltFin", r.get("salt_hex"))
-                price = int(p_img.get("price", r.get("bid_amount", 0)))
-                boq = p_img.get("boqHash", r.get("ciphertext_hash_hex"))
-                try:
-                    bid = state.ledger.reveal_financial_envelope(state.tender_pda, r["bidderPubkey"], salt_fin, price, boq)
-                    revealed_list.append({"bidder": r["bidderPubkey"], "revealed_price": price})
-                except Exception as e:
-                    pass
-            self.send_json({"status": "ok", "revealed": revealed_list})
+            # Batch reveal from client-provided unsealing keys
+            reveals = data.get("reveals")
+            if reveals is not None:
+                revealed_list = []
+                for item in reveals:
+                    bpk = item.get("bidder_pubkey")
+                    salt_fin = item.get("salt_fin")
+                    price = int(item.get("price", 0))
+                    boq = item.get("boq_hash")
+                    try:
+                        bid = state.ledger.reveal_financial_envelope(state.tender_pda, bpk, salt_fin, price, boq)
+                        revealed_list.append({"bidder": bpk, "revealed_price": price})
+                    except Exception:
+                        pass
+                self.send_json({"status": "ok", "revealed": revealed_list})
+                return
+
+            self.send_json({
+                "status": "error",
+                "message": "Commercial Secrecy Invariant: Relayer memory does not store plaintext financial keys. Provide unsealing keys via 'reveals' array or 'bidder_pubkey'."
+            }, 400)
             return
 
         # 7b. Refund Disqualified Bidder Bond (Commercial Secrecy preserved)
@@ -703,21 +743,34 @@ class BidTraceHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if parsed_path in ["/api/attack/tamper_price", "/api/attack-tamper-price"]:
-            if not state.bidders_receipts:
+            bidder_pk = data.get("bidder_pubkey")
+            salt_fin = data.get("salt_fin")
+            price = data.get("price")
+            boq = data.get("boq_hash")
+
+            if not bidder_pk and state.bidders_receipts:
+                target = state.bidders_receipts[0]
+                bidder_pk = target.get("bidderPubkey")
+                p_img = target.get("unsealingPreimages", {})
+                if not salt_fin:
+                    salt_fin = p_img.get("saltFin") if p_img.get("saltFin") != "SEALED_COMMERCIAL_SECRECY_PRESERVED" else ("aa" * 32)
+                if not price:
+                    price = p_img.get("price") or 3800000
+                if not boq:
+                    boq = p_img.get("boqHash") if p_img.get("boqHash") != "SEALED_COMMERCIAL_SECRECY_PRESERVED" else ("bb" * 32)
+
+            if not bidder_pk:
                 self.send_json({"status": "error", "message": "No bids to tamper."}, 400)
                 return
-            target = state.bidders_receipts[0]
-            p_img = target.get("unsealingPreimages", {})
-            salt_fin = p_img.get("saltFin", target.get("salt_hex"))
-            boq = p_img.get("boqHash", target.get("ciphertext_hash_hex"))
-            tampered_price = int(p_img.get("price", target.get("bid_amount", 4000000))) - 500000
+
+            tampered_price = int(price or 3800000) - 500000
             try:
                 state.ledger.reveal_financial_envelope(
                     tender_pda=state.tender_pda,
-                    bidder_pubkey=target["bidderPubkey"],
-                    salt_fin=salt_fin,
+                    bidder_pubkey=bidder_pk,
+                    salt_fin=salt_fin or ("aa" * 32),
                     price=tampered_price,
-                    boq_hash=boq
+                    boq_hash=boq or ("bb" * 32)
                 )
                 self.send_json({"status": "breach", "message": "CRITICAL: Tampered price was accepted!"}, 500)
             except Exception as e:

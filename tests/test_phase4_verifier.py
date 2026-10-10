@@ -566,13 +566,13 @@ class TestPhase4RestApiAndCli(unittest.TestCase):
         # 2. Commit 2 bids
         b1_kp = generate_keypair()
         b2_kp = generate_keypair()
-        self._post("/api/bid/commit_dual", {
+        resp1 = self._post("/api/bid/commit_dual", {
             "bidder_pubkey": b1_kp["public_key"],
             "bidder_name": "Contractor Alpha",
             "price": 3800000,
             "bond_amount": 190000
         })
-        self._post("/api/bid/commit_dual", {
+        resp2 = self._post("/api/bid/commit_dual", {
             "bidder_pubkey": b2_kp["public_key"],
             "bidder_name": "Contractor Beta",
             "price": 4000000,
@@ -583,9 +583,9 @@ class TestPhase4RestApiAndCli(unittest.TestCase):
         self._post("/api/tender/advance_phase", {}) # to AdministrativeReview
         self._post("/api/tender/advance_phase", {}) # to TechnicalEvaluation
 
-        # Reveal Envelope A
-        r1 = state.bidders_receipts[0]
-        r2 = state.bidders_receipts[1]
+        # Reveal Envelope A using client-held receipts
+        r1 = resp1["receipt"]
+        r2 = resp2["receipt"]
         self._post("/api/bid/reveal_technical", {
             "bidder_pubkey": b1_kp["public_key"],
             "salt_tech": r1["unsealingPreimages"]["saltTech"],

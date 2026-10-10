@@ -563,6 +563,10 @@ class BidTraceLedger:
             tender["lowest_revealed_price"] = price
 
         self.save_state()
+
+        if hasattr(self, "on_fin_reveal") and callable(self.on_fin_reveal):
+            self.on_fin_reveal(tender_pda, bidder_pubkey, salt_fin, price, boq_hash)
+
         return bid
 
     def refund_disqualified_bond(
